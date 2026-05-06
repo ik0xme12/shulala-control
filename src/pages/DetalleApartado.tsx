@@ -152,9 +152,9 @@ export default function DetalleApartado() {
                 />
               </div>
               <input
-                type="text" value={notaAbono} onChange={e => setNotaAbono(e.target.value)}
-                placeholder="Nota (opcional)"
-                className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage"
+                type="text" value={notaAbono} onChange={e => setNotaAbono(e.target.value.toUpperCase())}
+                placeholder="NOTA (OPCIONAL)"
+                className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
               />
               {error && <p className="text-red-500 text-sm">{error}</p>}
               <button type="submit" disabled={guardando}

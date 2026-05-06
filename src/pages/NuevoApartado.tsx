@@ -17,6 +17,7 @@ export default function NuevoApartado() {
   const [error, setError] = useState('');
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const setUpper = (k: string, v: string) => set(k, v.toUpperCase());
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,18 +78,18 @@ export default function NuevoApartado() {
               <div>
                 <label className="block text-sm text-text-light mb-1">Nombre del artículo *</label>
                 <input
-                  type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                  placeholder="Ej: Vestido floral negro"
-                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage"
+                  type="text" value={form.nombre} onChange={e => setUpper('nombre', e.target.value)}
+                  placeholder="Ej: VESTIDO FLORAL NEGRO"
+                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm text-text-light mb-1">Descripción</label>
                 <input
-                  type="text" value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-                  placeholder="Talla, color, detalles..."
-                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage"
+                  type="text" value={form.descripcion} onChange={e => setUpper('descripcion', e.target.value)}
+                  placeholder="TALLA, COLOR, DETALLES..."
+                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                 />
               </div>
               <div>
@@ -113,9 +114,9 @@ export default function NuevoApartado() {
               <div>
                 <label className="block text-sm text-text-light mb-1">Nombre del cliente *</label>
                 <input
-                  type="text" value={form.cliente_nombre} onChange={e => set('cliente_nombre', e.target.value)}
-                  placeholder="Nombre completo"
-                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage"
+                  type="text" value={form.cliente_nombre} onChange={e => setUpper('cliente_nombre', e.target.value)}
+                  placeholder="NOMBRE COMPLETO"
+                  className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                   required
                 />
               </div>
@@ -155,10 +156,10 @@ export default function NuevoApartado() {
           <div className="bg-white rounded-2xl border border-sand p-5">
             <h2 className="font-semibold text-text mb-3">📝 Notas</h2>
             <textarea
-              value={form.notas} onChange={e => set('notas', e.target.value)}
-              placeholder="Fecha límite, acuerdos especiales..."
+              value={form.notas} onChange={e => setUpper('notas', e.target.value)}
+              placeholder="FECHA LÍMITE, ACUERDOS ESPECIALES..."
               rows={3}
-              className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage resize-none"
+              className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage resize-none uppercase"
             />
           </div>
 
