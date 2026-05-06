@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
@@ -43,14 +43,29 @@ export default function NuevoApartado() {
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
-  const [sugerencias, setSugerencias] = useState<ClienteSugerido[]>([]);
+  const [todosClientes, setTodosClientes] = useState<ClienteSugerido[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteSugerido | null>(null);
-  const busquedaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [todosLugares, setTodosLugares] = useState<string[]>([]);
   const [mostrarLugares, setMostrarLugares] = useState(false);
 
   useEffect(() => {
+    supabase.from('apartados')
+      .select('cliente_nombre, cliente_tel, articulos(precio_total), abonos(monto)')
+      .eq('estado', 'activo')
+      .then(({ data }) => {
+        const mapa = new Map<string, ClienteSugerido>();
+        for (const ap of data ?? []) {
+          const key = ap.cliente_nombre;
+          if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
+          const abonado = ((ap.abonos ?? []) as { monto: number }[]).reduce((s, a) => s + a.monto, 0);
+          const precio = (ap.articulos as unknown as { precio_total: number } | null)?.precio_total ?? 0;
+          const c = mapa.get(key)!;
+          c.pendiente += precio - abonado;
+          c.numApartados++;
+        }
+        setTodosClientes(Array.from(mapa.values()));
+      });
     supabase.from('apartados').select('lugar_entrega').not('lugar_entrega', 'is', null)
       .then(({ data }) => {
         const unicos = [...new Set((data ?? []).map(d => d.lugar_entrega).filter(Boolean) as string[])];
@@ -58,37 +73,14 @@ export default function NuevoApartado() {
       });
   }, []);
 
+  const clientesFiltrados = todosClientes.filter(c =>
+    !form.cliente_nombre.trim() || c.nombre.toLowerCase().includes(form.cliente_nombre.trim().toLowerCase())
+  );
   const lugaresFiltrados = todosLugares.filter(l =>
     !form.lugar_entrega.trim() || l.toLowerCase().includes(form.lugar_entrega.trim().toLowerCase())
   );
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  useEffect(() => {
-    const query = form.cliente_nombre.trim();
-    if (query.length < 2) { setSugerencias([]); setMostrarSugerencias(false); return; }
-    if (busquedaRef.current) clearTimeout(busquedaRef.current);
-    busquedaRef.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from('apartados')
-        .select('cliente_nombre, cliente_tel, articulos(precio_total), abonos(monto)')
-        .ilike('cliente_nombre', `%${query}%`)
-        .eq('estado', 'activo');
-      const mapa = new Map<string, ClienteSugerido>();
-      for (const ap of data ?? []) {
-        const key = ap.cliente_nombre;
-        if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
-        const abonado = ((ap.abonos ?? []) as { monto: number }[]).reduce((s, a) => s + a.monto, 0);
-        const precio = (ap.articulos as unknown as { precio_total: number } | null)?.precio_total ?? 0;
-        const c = mapa.get(key)!;
-        c.pendiente += precio - abonado;
-        c.numApartados++;
-      }
-      const resultado = Array.from(mapa.values());
-      setSugerencias(resultado);
-      setMostrarSugerencias(resultado.length > 0);
-    }, 300);
-  }, [form.cliente_nombre]);
 
   const seleccionarCliente = (c: ClienteSugerido) => {
     setForm(f => ({ ...f, cliente_nombre: c.nombre, cliente_tel: c.tel }));
@@ -168,19 +160,20 @@ export default function NuevoApartado() {
                 <Label>Nombre del cliente *</Label>
                 <div className="relative">
                   <input type="text" value={form.cliente_nombre}
-                    onChange={e => { set('cliente_nombre', e.target.value); setClienteSeleccionado(null); }}
-                    onFocus={() => sugerencias.length > 0 && setMostrarSugerencias(true)}
+                    onChange={e => { set('cliente_nombre', e.target.value); setClienteSeleccionado(null); setMostrarSugerencias(true); }}
+                    onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (clientesFiltrados.length > 0) setMostrarSugerencias(true); }}
+                    onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarSugerencias(false), 200); }}
                     placeholder="Buscar o escribir nombre..." required autoComplete="off"
-                    className={inputCls} style={inputStyle}
-                    onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarSugerencias(false), 200); }} />
+                    className={inputCls} style={inputStyle} />
 
-                  {mostrarSugerencias && (
+                  {mostrarSugerencias && clientesFiltrados.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
                       style={{ border: '1px solid #E8DDD0' }}>
-                      {sugerencias.map((c, i) => (
+                      {clientesFiltrados.map((c, i) => (
                         <button key={i} type="button" onClick={() => seleccionarCliente(c)}
-                          className="w-full px-4 py-3 text-left hover:bg-cream flex items-center justify-between gap-3 border-b last:border-0"
-                          style={{ borderColor: '#E8DDD0' }}>
+                          className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 border-b last:border-0"
+                          style={{ borderColor: '#E8DDD0' }}
+                          onMouseDown={e => e.preventDefault()}>
                           <div>
                             <div className="font-medium text-text text-sm font-serif">{c.nombre}</div>
                             {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
