@@ -275,10 +275,6 @@ export default function DetalleApartado() {
                             style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
                         </div>
                       </div>
-                      <input type="text" value={editNota} onChange={e => setEditNota(e.target.value)}
-                        placeholder="Nota (opcional)"
-                        className="w-full px-3 py-2 rounded-lg text-sm text-text focus:outline-none uppercase bg-white"
-                        style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }} />
                       <div className="flex gap-2 pt-1">
                         <button onClick={() => { setEditandoId(null); setError(''); }}
                           className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
@@ -311,8 +307,8 @@ export default function DetalleApartado() {
                         </div>
                         <button
                           onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
-                          className="text-xs px-2 py-1 rounded-lg bg-white transition-colors"
-                          style={{ color: '#B8956A', border: '1px solid #E8DDD0' }}>
+                          className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-colors"
+                          style={{ backgroundColor: '#7D9B7E' }}>
                           ✎ Editar
                         </button>
                       </div>
