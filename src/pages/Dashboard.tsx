@@ -199,7 +199,7 @@ export default function Dashboard() {
 
               const expandido = clienteExpandido === c.nombre;
               return (
-                <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+                <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden card-hover" style={{ border: '1px solid #E8DDD0' }}>
                   <button className="w-full p-4 text-left transition-colors hover:bg-cream"
                     onClick={() => setClienteExpandido(expandido ? null : c.nombre)}>
                     <div className="flex items-center justify-between gap-3">

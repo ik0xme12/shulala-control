@@ -47,12 +47,12 @@
     border-radius: 1rem;
   }
   .card-hover {
-    transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
   }
   .card-hover:hover {
-    box-shadow: 0 4px 20px rgba(184,149,106,0.15);
-    border-color: #D4B896;
-    transform: translateY(-1px);
+    box-shadow: 0 12px 40px rgba(184,149,106,0.25);
+    border-color: #B8956A !important;
+    transform: translateY(-3px);
   }
 }
 
