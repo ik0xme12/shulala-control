@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<'activo' | 'liquidado'>('activo');
-  const [vista, setVista] = useState<VistaTab>('apartados');
+  const [vista, setVista] = useState<VistaTab>('clientes');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
 
