@@ -151,7 +151,7 @@ export default function DetalleApartado() {
             ].map(m => (
               <div key={m.label} className="rounded-xl p-3 text-center" style={{ backgroundColor: '#F5F0E8' }}>
                 <div className="text-xs tracking-widest uppercase text-text-light mb-1">{m.label}</div>
-                <div className="font-serif font-semibold" style={{ color: m.color }}>
+                <div className="font-sans font-bold tracking-tight" style={{ color: m.color }}>
                   ${m.valor.toLocaleString('es-MX')}
                 </div>
               </div>
@@ -221,8 +221,8 @@ export default function DetalleApartado() {
                       {abonosOrdenados.length - i}
                     </div>
                     <div>
-                      <div className="font-serif font-semibold text-text">
-                        ${abono.monto.toLocaleString('es-MX')} <span className="text-xs font-sans text-text-light">MXN</span>
+                      <div className="font-sans font-semibold text-text">
+                        ${abono.monto.toLocaleString('es-MX')} <span className="text-xs text-text-light">MXN</span>
                       </div>
                       {abono.nota && <div className="text-xs text-text-light">{abono.nota}</div>}
                     </div>
