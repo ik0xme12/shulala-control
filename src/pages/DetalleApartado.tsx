@@ -51,6 +51,10 @@ export default function DetalleApartado() {
   };
 
   const liquidar = async () => {
+    const pend = (apartado!.articulos?.precio_total ?? 0) - totalAbonado(apartado!);
+    if (pend > 0) {
+      await supabase.from('abonos').insert({ apartado_id: id, monto: pend, nota: 'LIQUIDACIÓN' });
+    }
     await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
     setConfirmarLiquidar(false);
     cargar();
