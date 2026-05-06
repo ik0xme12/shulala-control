@@ -17,7 +17,6 @@ export default function NuevoApartado() {
   const [error, setError] = useState('');
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-  const setUpper = (k: string, v: string) => set(k, v.toUpperCase());
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +35,7 @@ export default function NuevoApartado() {
     // Crear artículo
     const { data: art, error: e1 } = await supabase
       .from('articulos')
-      .insert({ nombre: form.nombre, descripcion: form.descripcion, precio_total: precio })
+      .insert({ nombre: form.nombre.toUpperCase(), descripcion: form.descripcion.toUpperCase(), precio_total: precio })
       .select()
       .single();
     if (e1 || !art) { setError('Error al guardar el artículo'); setGuardando(false); return; }
@@ -44,7 +43,7 @@ export default function NuevoApartado() {
     // Crear apartado
     const { data: ap, error: e2 } = await supabase
       .from('apartados')
-      .insert({ articulo_id: art.id, cliente_nombre: form.cliente_nombre, cliente_tel: form.cliente_tel, notas: form.notas, estado: 'activo' })
+      .insert({ articulo_id: art.id, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel, notas: form.notas.toUpperCase(), estado: 'activo' })
       .select()
       .single();
     if (e2 || !ap) { setError('Error al guardar el apartado'); setGuardando(false); return; }
@@ -78,7 +77,7 @@ export default function NuevoApartado() {
               <div>
                 <label className="block text-sm text-text-light mb-1">Nombre del artículo *</label>
                 <input
-                  type="text" value={form.nombre} onChange={e => setUpper('nombre', e.target.value)}
+                  type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                   placeholder="Ej: VESTIDO FLORAL NEGRO"
                   className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                   required
@@ -87,7 +86,7 @@ export default function NuevoApartado() {
               <div>
                 <label className="block text-sm text-text-light mb-1">Descripción</label>
                 <input
-                  type="text" value={form.descripcion} onChange={e => setUpper('descripcion', e.target.value)}
+                  type="text" value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
                   placeholder="TALLA, COLOR, DETALLES..."
                   className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                 />
@@ -114,7 +113,7 @@ export default function NuevoApartado() {
               <div>
                 <label className="block text-sm text-text-light mb-1">Nombre del cliente *</label>
                 <input
-                  type="text" value={form.cliente_nombre} onChange={e => setUpper('cliente_nombre', e.target.value)}
+                  type="text" value={form.cliente_nombre} onChange={e => set('cliente_nombre', e.target.value)}
                   placeholder="NOMBRE COMPLETO"
                   className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
                   required
@@ -156,7 +155,7 @@ export default function NuevoApartado() {
           <div className="bg-white rounded-2xl border border-sand p-5">
             <h2 className="font-semibold text-text mb-3">📝 Notas</h2>
             <textarea
-              value={form.notas} onChange={e => setUpper('notas', e.target.value)}
+              value={form.notas} onChange={e => set('notas', e.target.value)}
               placeholder="FECHA LÍMITE, ACUERDOS ESPECIALES..."
               rows={3}
               className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage resize-none uppercase"

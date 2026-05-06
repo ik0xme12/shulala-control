@@ -38,7 +38,7 @@ export default function DetalleApartado() {
 
     setGuardando(true);
     setError('');
-    await supabase.from('abonos').insert({ apartado_id: id, monto, nota: notaAbono });
+    await supabase.from('abonos').insert({ apartado_id: id, monto, nota: notaAbono.toUpperCase() });
 
     // Si queda saldo 0, liquidar automáticamente
     const nuevoTotal = totalAbonado(apartado!) + monto;
@@ -152,7 +152,7 @@ export default function DetalleApartado() {
                 />
               </div>
               <input
-                type="text" value={notaAbono} onChange={e => setNotaAbono(e.target.value.toUpperCase())}
+                type="text" value={notaAbono} onChange={e => setNotaAbono(e.target.value)}
                 placeholder="NOTA (OPCIONAL)"
                 className="w-full border border-sand rounded-xl px-4 py-2.5 text-text focus:outline-none focus:ring-2 focus:ring-sage/30 focus:border-sage uppercase"
               />
