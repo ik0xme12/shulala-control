@@ -47,6 +47,20 @@ export default function NuevoApartado() {
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteSugerido | null>(null);
   const busquedaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [todosLugares, setTodosLugares] = useState<string[]>([]);
+  const [mostrarLugares, setMostrarLugares] = useState(false);
+
+  useEffect(() => {
+    supabase.from('apartados').select('lugar_entrega').not('lugar_entrega', 'is', null)
+      .then(({ data }) => {
+        const unicos = [...new Set((data ?? []).map(d => d.lugar_entrega).filter(Boolean) as string[])];
+        setTodosLugares(unicos);
+      });
+  }, []);
+
+  const lugaresFiltrados = todosLugares.filter(l =>
+    !form.lugar_entrega.trim() || l.toLowerCase().includes(form.lugar_entrega.trim().toLowerCase())
+  );
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -239,11 +253,29 @@ export default function NuevoApartado() {
               </div>
               <div>
                 <Label>Lugar de entrega</Label>
-                <input type="text" value={form.lugar_entrega} onChange={e => set('lugar_entrega', e.target.value)}
-                  placeholder="Ej: Tienda, domicilio..."
-                  className={inputCls} style={inputStyle}
-                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                <div className="relative">
+                  <input type="text" value={form.lugar_entrega}
+                    onChange={e => { set('lugar_entrega', e.target.value); setMostrarLugares(true); }}
+                    onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (lugaresFiltrados.length > 0) setMostrarLugares(true); }}
+                    onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarLugares(false), 200); }}
+                    placeholder="Ej: Tienda, domicilio..." autoComplete="off"
+                    className={inputCls} style={inputStyle} />
+                  {mostrarLugares && lugaresFiltrados.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
+                      style={{ border: '1px solid #E8DDD0' }}>
+                      {lugaresFiltrados.map((lugar, i) => (
+                        <button key={i} type="button"
+                          onClick={() => { set('lugar_entrega', lugar); setMostrarLugares(false); }}
+                          className="w-full px-4 py-2.5 text-left text-sm text-text border-b last:border-0 flex items-center gap-2"
+                          style={{ borderColor: '#E8DDD0' }}
+                          onMouseDown={e => e.preventDefault()}>
+                          <span style={{ color: '#B8956A' }}>📍</span>
+                          <span className="font-serif">{lugar}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </Seccion>
