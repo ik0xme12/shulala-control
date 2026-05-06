@@ -275,22 +275,24 @@ export default function DetalleApartado() {
                             style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={() => { setEditandoId(null); setError(''); }}
-                          className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
-                          style={{ border: '1px solid #E8DDD0' }}>
-                          Cancelar
-                        </button>
+                      <div className="flex items-center gap-2 pt-1">
                         <button onClick={() => eliminarAbono(abono.id)}
                           className="py-2 px-3 rounded-lg text-xs font-semibold text-white"
                           style={{ backgroundColor: '#DC2626' }}>
                           Eliminar
                         </button>
-                        <button onClick={() => guardarEdicion(abono)}
-                          className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
-                          style={{ backgroundColor: '#7D9B7E' }}>
-                          Guardar
-                        </button>
+                        <div className="flex gap-2 flex-1">
+                          <button onClick={() => { setEditandoId(null); setError(''); }}
+                            className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
+                            style={{ border: '1px solid #E8DDD0' }}>
+                            Cancelar
+                          </button>
+                          <button onClick={() => guardarEdicion(abono)}
+                            className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
+                            style={{ backgroundColor: '#7D9B7E' }}>
+                            Guardar
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
