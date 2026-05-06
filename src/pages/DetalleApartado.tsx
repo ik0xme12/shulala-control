@@ -330,10 +330,10 @@ export default function DetalleApartado() {
                       <div className="flex justify-end mt-2">
                         <button
                           onClick={() => setConfirmarEliminarAbono(abono.id)}
-                          className="p-1 rounded-lg transition-colors"
-                          style={{ color: '#C4A49A' }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white transition-colors"
+                          style={{ backgroundColor: '#C4A49A' }}
                           title="Eliminar abono">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />
                             <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
                             <path d="M10 11v6M14 11v6" />
