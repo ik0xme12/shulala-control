@@ -23,6 +23,7 @@ export type Apartado = {
   dias_limite: number | null;
   lugar_entrega: string | null;
   estado: 'activo' | 'liquidado';
+  entregado: boolean;
   created_at: string;
   articulos?: Articulo;
   abonos?: Abono[];
