@@ -37,8 +37,9 @@ function Label({ children }: { children: React.ReactNode }) {
 export default function NuevoApartado() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    nombre: '', descripcion: '', precio_total: '',
+    nombre: '', precio_total: '',
     cliente_nombre: '', cliente_tel: '', abono_inicial: '', notas: '',
+    dias_limite: '', lugar_entrega: '',
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -91,12 +92,20 @@ export default function NuevoApartado() {
     setGuardando(true); setError('');
 
     const { data: art, error: e1 } = await supabase.from('articulos')
-      .insert({ nombre: form.nombre.toUpperCase(), descripcion: form.descripcion.toUpperCase(), precio_total: precio })
+      .insert({ nombre: form.nombre.toUpperCase(), descripcion: '', precio_total: precio })
       .select().single();
     if (e1 || !art) { setError('Error al guardar el artículo'); setGuardando(false); return; }
 
     const { data: ap, error: e2 } = await supabase.from('apartados')
-      .insert({ articulo_id: art.id, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel, notas: form.notas.toUpperCase(), estado: 'activo' })
+      .insert({
+        articulo_id: art.id,
+        cliente_nombre: form.cliente_nombre.toUpperCase(),
+        cliente_tel: form.cliente_tel,
+        notas: form.notas.toUpperCase(),
+        dias_limite: form.dias_limite ? parseInt(form.dias_limite) : null,
+        lugar_entrega: form.lugar_entrega.toUpperCase() || null,
+        estado: 'activo',
+      })
       .select().single();
     if (e2 || !ap) { setError('Error al guardar el apartado'); setGuardando(false); return; }
 
@@ -120,14 +129,6 @@ export default function NuevoApartado() {
                 <Label>Nombre del artículo *</Label>
                 <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                   placeholder="Ej: Vestido floral negro" required
-                  className={inputCls} style={inputStyle}
-                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
-              </div>
-              <div>
-                <Label>Descripción</Label>
-                <input type="text" value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
-                  placeholder="Talla, color, detalles..."
                   className={inputCls} style={inputStyle}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
@@ -225,10 +226,32 @@ export default function NuevoApartado() {
             )}
           </Seccion>
 
+          {/* Acuerdo */}
+          <Seccion icono="🤝" titulo="Acuerdo">
+            <div className="space-y-3">
+              <div>
+                <Label>Días para liquidar</Label>
+                <input type="number" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                  placeholder="Ej: 30" min="1"
+                  className={`${inputCls} normal-case`} style={inputStyle}
+                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              </div>
+              <div>
+                <Label>Lugar de entrega</Label>
+                <input type="text" value={form.lugar_entrega} onChange={e => set('lugar_entrega', e.target.value)}
+                  placeholder="Ej: Tienda, domicilio..."
+                  className={inputCls} style={inputStyle}
+                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              </div>
+            </div>
+          </Seccion>
+
           {/* Notas */}
           <Seccion icono="📝" titulo="Notas">
             <textarea value={form.notas} onChange={e => set('notas', e.target.value)}
-              placeholder="Fecha límite, acuerdos especiales..." rows={3}
+              placeholder="Acuerdos especiales..." rows={3}
               className="w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none resize-none uppercase"
               style={inputStyle}
               onFocus={e => Object.assign(e.target.style, inputFocusStyle)}

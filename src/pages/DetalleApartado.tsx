@@ -171,6 +171,20 @@ export default function DetalleApartado() {
                 {apartado.cliente_tel && <div className="text-xs text-text-light">{apartado.cliente_tel}</div>}
               </div>
             </div>
+            {(apartado.dias_limite || apartado.lugar_entrega) && (
+              <div className="flex flex-wrap gap-3 mt-2">
+                {apartado.dias_limite && (
+                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}>
+                    📅 {apartado.dias_limite} días para liquidar
+                  </span>
+                )}
+                {apartado.lugar_entrega && (
+                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
+                    📍 {apartado.lugar_entrega}
+                  </span>
+                )}
+              </div>
+            )}
             {apartado.notas && (
               <p className="text-xs text-text-light mt-2 italic">📝 {apartado.notas}</p>
             )}

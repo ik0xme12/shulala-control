@@ -20,6 +20,8 @@ export type Apartado = {
   cliente_nombre: string;
   cliente_tel: string;
   notas: string;
+  dias_limite: number | null;
+  lugar_entrega: string | null;
   estado: 'activo' | 'liquidado';
   created_at: string;
   articulos?: Articulo;
