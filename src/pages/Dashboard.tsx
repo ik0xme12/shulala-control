@@ -103,6 +103,25 @@ export default function Dashboard() {
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
 
+        {/* Buscador */}
+        {!cargando && apartados.length > 0 && (
+          <div className="relative animate-fade-in">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#B8956A' }}>⌕</span>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder={
+                filtro === 'liquidado' ? 'Buscar en historial...'
+                : vista === 'clientes' ? 'Buscar cliente...'
+                : 'Buscar artículo...'
+              }
+              className="w-full pl-8 pr-4 py-2 rounded-xl text-sm text-text focus:outline-none"
+              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
+            />
+          </div>
+        )}
+
         {/* Stats / navegación de vista */}
         {filtro === 'activo' && !cargando && (
           <div className="grid grid-cols-3 gap-3 animate-slide-up">
@@ -128,25 +147,6 @@ export default function Dashboard() {
               <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#B8956A' }}>${totalPendienteGeneral.toLocaleString('es-MX')}</div>
               <div className="text-xs text-text-light tracking-wide mt-0.5">Por cobrar</div>
             </div>
-          </div>
-        )}
-
-        {/* Buscador */}
-        {!cargando && apartados.length > 0 && (
-          <div className="relative animate-fade-in">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#B8956A' }}>⌕</span>
-            <input
-              type="text"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder={
-                filtro === 'liquidado' ? 'Buscar en historial...'
-                : vista === 'clientes' ? 'Buscar cliente...'
-                : 'Buscar artículo...'
-              }
-              className="w-full pl-8 pr-4 py-2 rounded-xl text-sm text-text focus:outline-none"
-              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
-            />
           </div>
         )}
 
