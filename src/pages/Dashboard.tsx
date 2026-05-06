@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [filtro, setFiltro] = useState<'activo' | 'liquidado'>('activo');
   const [vista, setVista] = useState<VistaTab>('apartados');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
 
   const cargar = async () => {
     setCargando(true);
@@ -31,6 +32,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => { cargar(); }, [filtro]);
+  useEffect(() => { setBusqueda(''); }, [vista, filtro]);
 
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
@@ -60,6 +62,16 @@ export default function Dashboard() {
     }
     return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
   })();
+
+  const q = busqueda.trim().toLowerCase();
+  const apartadosFiltrados = q
+    ? apartados.filter(ap =>
+        (ap.articulos?.nombre ?? '').toLowerCase().includes(q) ||
+        ap.cliente_nombre.toLowerCase().includes(q))
+    : apartados;
+  const clientesFiltrados = q
+    ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
+    : resumenClientes;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -119,6 +131,25 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Buscador */}
+        {!cargando && apartados.length > 0 && (
+          <div className="relative animate-fade-in">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#B8956A' }}>⌕</span>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder={
+                filtro === 'liquidado' ? 'Buscar en historial...'
+                : vista === 'clientes' ? 'Buscar cliente...'
+                : 'Buscar artículo...'
+              }
+              className="w-full pl-8 pr-4 py-2 rounded-xl text-sm text-text focus:outline-none"
+              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
+            />
+          </div>
+        )}
+
         {/* Botón volver cuando se está en liquidados */}
         {filtro === 'liquidado' && (
           <button onClick={() => setFiltro('activo')}
@@ -147,7 +178,10 @@ export default function Dashboard() {
           </div>
         ) : vista === 'apartados' || filtro === 'liquidado' ? (
           <div className="space-y-3 animate-fade-in">
-            {apartados.map(ap => {
+            {apartadosFiltrados.length === 0 && q && (
+              <p className="text-center text-sm py-8 font-serif" style={{ color: '#7A6A62' }}>Sin resultados para "{busqueda}"</p>
+            )}
+            {apartadosFiltrados.map(ap => {
               const pct = porcentaje(ap);
               const pend = pendiente(ap);
               return (
@@ -195,7 +229,10 @@ export default function Dashboard() {
         ) : (
           /* Vista por cliente */
           <div className="space-y-3 animate-fade-in">
-            {resumenClientes.map((c) => {
+            {clientesFiltrados.length === 0 && q && (
+              <p className="text-center text-sm py-8 font-serif" style={{ color: '#7A6A62' }}>Sin resultados para "{busqueda}"</p>
+            )}
+            {clientesFiltrados.map((c) => {
 
               const expandido = clienteExpandido === c.nombre;
               return (
