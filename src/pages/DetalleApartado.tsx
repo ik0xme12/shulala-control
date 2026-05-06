@@ -14,6 +14,9 @@ export default function DetalleApartado() {
   const [error, setError] = useState('');
   const [confirmarLiquidar, setConfirmarLiquidar] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editMonto, setEditMonto] = useState('');
+  const [editNota, setEditNota] = useState('');
 
   const cargar = async () => {
     const { data } = await supabase
@@ -49,6 +52,27 @@ export default function DetalleApartado() {
   const liquidar = async () => {
     await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
     setConfirmarLiquidar(false);
+    cargar();
+  };
+
+  const guardarEdicion = async (abono: Abono) => {
+    const monto = parseFloat(editMonto);
+    if (!monto || monto <= 0) return;
+    const otrosAbonos = (apartado!.abonos ?? [])
+      .filter(a => a.id !== abono.id)
+      .reduce((s, a) => s + a.monto, 0);
+    const precio = apartado!.articulos?.precio_total ?? 0;
+    const maxPermitido = precio - otrosAbonos;
+    if (monto > maxPermitido) { setError(`Máximo $${maxPermitido.toLocaleString('es-MX')}`); return; }
+    await supabase.from('abonos').update({ monto, nota: editNota.toUpperCase() || null }).eq('id', abono.id);
+    const nuevoTotal = otrosAbonos + monto;
+    if (nuevoTotal >= precio && apartado!.estado !== 'liquidado') {
+      await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
+    } else if (nuevoTotal < precio && apartado!.estado === 'liquidado') {
+      await supabase.from('apartados').update({ estado: 'activo' }).eq('id', id);
+    }
+    setEditandoId(null);
+    setError('');
     cargar();
   };
 
@@ -212,24 +236,65 @@ export default function DetalleApartado() {
           ) : (
             <div className="space-y-0">
               {abonosOrdenados.map((abono: Abono, i) => (
-                <div key={abono.id}
-                  className="flex items-center justify-between py-3 border-b last:border-0"
-                  style={{ borderColor: '#E8DDD0' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
-                      style={{ backgroundColor: '#B8956A' }}>
-                      {abonosOrdenados.length - i}
-                    </div>
-                    <div>
-                      <div className="font-sans font-semibold text-text">
-                        ${abono.monto.toLocaleString('es-MX')} <span className="text-xs text-text-light">MXN</span>
+                <div key={abono.id} className="py-3 border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
+                  {editandoId === abono.id ? (
+                    <div className="space-y-2 animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
+                          style={{ backgroundColor: '#B8956A' }}>
+                          {abonosOrdenados.length - i}
+                        </div>
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                          <input type="number" value={editMonto} onChange={e => setEditMonto(e.target.value)}
+                            className="w-full pl-6 pr-3 py-1.5 rounded-lg text-sm text-text focus:outline-none"
+                            style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                        </div>
                       </div>
-                      {abono.nota && <div className="text-xs text-text-light">{abono.nota}</div>}
+                      <input type="text" value={editNota} onChange={e => setEditNota(e.target.value)}
+                        placeholder="Nota (opcional)"
+                        className="w-full px-3 py-1.5 rounded-lg text-sm text-text focus:outline-none uppercase"
+                        style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditandoId(null); setError(''); }}
+                          className="flex-1 py-1.5 rounded-lg text-xs text-text-light"
+                          style={{ border: '1px solid #E8DDD0' }}>
+                          Cancelar
+                        </button>
+                        <button onClick={() => guardarEdicion(abono)}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white"
+                          style={{ backgroundColor: '#7D9B7E' }}>
+                          Guardar
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-xs text-text-light text-right">
-                    {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
+                          style={{ backgroundColor: '#B8956A' }}>
+                          {abonosOrdenados.length - i}
+                        </div>
+                        <div>
+                          <div className="font-sans font-semibold text-text">
+                            ${abono.monto.toLocaleString('es-MX')} <span className="text-xs text-text-light">MXN</span>
+                          </div>
+                          {abono.nota && <div className="text-xs text-text-light">{abono.nota}</div>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-xs text-text-light text-right">
+                          {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </div>
+                        <button
+                          onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
+                          className="text-xs px-2 py-1 rounded-lg transition-colors"
+                          style={{ color: '#B8956A', border: '1px solid #E8DDD0' }}>
+                          ✎
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
