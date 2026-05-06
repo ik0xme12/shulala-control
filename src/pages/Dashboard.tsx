@@ -46,7 +46,6 @@ export default function Dashboard() {
 
   const totalPendienteGeneral = apartados.reduce((s, a) => s + pendiente(a), 0);
 
-  // Agrupar por cliente
   const resumenClientes = (() => {
     const mapa = new Map<string, ResumenCliente>();
     for (const ap of apartados) {
@@ -64,106 +63,128 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <header className="bg-white border-b border-sand sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-text text-lg leading-tight" style={{ fontFamily: '"Georgia", serif' }}>
-              Shulalá <span className="text-sage">Control</span>
-            </h1>
-            <p className="text-xs text-text-light">Panel de apartados</p>
+
+      {/* Header */}
+      <header className="bg-white border-b border-sand sticky top-0 z-10" style={{ borderBottomColor: '#D4B896' }}>
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src="/logo.jpg" alt="Shulalá" className="w-10 h-10 rounded-full object-cover border-2" style={{ borderColor: '#B8956A' }} />
+              <div>
+                <div className="leading-none">
+                  <span className="font-script text-2xl" style={{ color: '#2C2422' }}>Shulalá</span>
+                  <span className="font-serif text-sm text-text-light ml-1 tracking-widest uppercase">Control</span>
+                </div>
+                <p className="text-xs text-text-light tracking-wide">Panel de apartados</p>
+              </div>
+            </div>
+            <Link
+              to="/nuevo"
+              className="text-sm font-medium px-4 py-2 rounded-xl border transition-all"
+              style={{ backgroundColor: '#7D9B7E', color: 'white', borderColor: '#5C7A5D' }}
+            >
+              + Nuevo
+            </Link>
           </div>
-          <Link to="/nuevo" className="bg-sage text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-sage-dark">
-            + Nuevo apartado
-          </Link>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+
         {/* Stats */}
-        {filtro === 'activo' && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl p-4 border border-sand">
-              <div className="text-2xl font-bold text-sage">{apartados.length}</div>
-              <div className="text-xs text-text-light">Apartados</div>
-            </div>
-            <div className="bg-white rounded-2xl p-4 border border-sand">
-              <div className="text-2xl font-bold text-dusty">{resumenClientes.length}</div>
-              <div className="text-xs text-text-light">Clientes</div>
-            </div>
-            <div className="bg-white rounded-2xl p-4 border border-sand">
-              <div className="text-lg font-bold text-dusty">${totalPendienteGeneral.toLocaleString('es-MX')}</div>
-              <div className="text-xs text-text-light">Pendiente total</div>
-            </div>
+        {filtro === 'activo' && !cargando && (
+          <div className="grid grid-cols-3 gap-3 animate-slide-up">
+            {[
+              { valor: apartados.length.toString(), label: 'Apartados', color: '#7D9B7E' },
+              { valor: resumenClientes.length.toString(), label: 'Clientes', color: '#C4A49A' },
+              { valor: `$${totalPendienteGeneral.toLocaleString('es-MX')}`, label: 'Por cobrar', color: '#B8956A' },
+            ].map(s => (
+              <div key={s.label} className="bg-white rounded-2xl p-3 text-center" style={{ border: '1px solid #E8DDD0' }}>
+                <div className="font-serif font-semibold text-xl" style={{ color: s.color }}>{s.valor}</div>
+                <div className="text-xs text-text-light tracking-wide mt-0.5">{s.label}</div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Filtro activo/liquidado */}
-        <div className="bg-white rounded-xl p-1 flex border border-sand">
-          <button onClick={() => setFiltro('activo')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'activo' ? 'bg-sage text-white' : 'text-text-light'}`}>
-            Activos
-          </button>
-          <button onClick={() => setFiltro('liquidado')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'liquidado' ? 'bg-sage text-white' : 'text-text-light'}`}>
-            Liquidados
-          </button>
+        {/* Toggle activo/liquidado */}
+        <div className="bg-white rounded-xl p-1 flex" style={{ border: '1px solid #E8DDD0' }}>
+          {(['activo', 'liquidado'] as const).map(f => (
+            <button key={f} onClick={() => setFiltro(f)}
+              className="flex-1 py-2 rounded-lg text-sm font-medium tracking-wide transition-all capitalize"
+              style={filtro === f ? { backgroundColor: '#7D9B7E', color: 'white' } : { color: '#7A6A62' }}>
+              {f === 'activo' ? 'Activos' : 'Liquidados'}
+            </button>
+          ))}
         </div>
 
-        {/* Vista apartados / clientes */}
+        {/* Toggle vista */}
         {filtro === 'activo' && !cargando && apartados.length > 0 && (
-          <div className="bg-white rounded-xl p-1 flex border border-sand">
-            <button onClick={() => setVista('apartados')}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${vista === 'apartados' ? 'bg-dusty/20 text-dusty' : 'text-text-light'}`}>
-              Por artículo
-            </button>
-            <button onClick={() => setVista('clientes')}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${vista === 'clientes' ? 'bg-dusty/20 text-dusty' : 'text-text-light'}`}>
-              Por cliente
-            </button>
+          <div className="flex gap-2 justify-center">
+            {(['apartados', 'clientes'] as const).map(v => (
+              <button key={v} onClick={() => setVista(v)}
+                className="px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase transition-all"
+                style={vista === v
+                  ? { backgroundColor: '#C4A49A', color: 'white' }
+                  : { backgroundColor: 'white', color: '#7A6A62', border: '1px solid #E8DDD0' }}>
+                {v === 'apartados' ? 'Por artículo' : 'Por cliente'}
+              </button>
+            ))}
           </div>
         )}
 
         {/* Contenido */}
         {cargando ? (
-          <div className="text-center py-12 text-text-light text-sm">Cargando...</div>
+          <div className="text-center py-16">
+            <div className="font-script text-3xl text-text-light">Cargando...</div>
+          </div>
         ) : apartados.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">🛍️</div>
-            <p className="text-text-light text-sm">
-              {filtro === 'activo' ? 'No hay apartados activos' : 'No hay apartados liquidados'}
+          <div className="text-center py-16 animate-fade-in">
+            <img src="/logo.jpg" alt="" className="w-20 h-20 rounded-full mx-auto mb-4 opacity-30 object-cover" />
+            <p className="font-serif text-lg text-text-light">
+              {filtro === 'activo' ? 'Sin apartados activos' : 'Sin apartados liquidados'}
             </p>
             {filtro === 'activo' && (
-              <Link to="/nuevo" className="text-sage font-medium text-sm mt-2 inline-block hover:underline">
+              <Link to="/nuevo" className="text-sm mt-3 inline-block font-medium" style={{ color: '#7D9B7E' }}>
                 Crear primer apartado →
               </Link>
             )}
           </div>
         ) : vista === 'apartados' || filtro === 'liquidado' ? (
-          /* Vista por artículo */
           <div className="space-y-3 animate-fade-in">
             {apartados.map(ap => {
               const pct = porcentaje(ap);
               const pend = pendiente(ap);
               return (
-                <Link key={ap.id} to={`/apartado/${ap.id}`} className="block bg-white rounded-2xl border border-sand p-4 hover:shadow-md hover:border-sage-light transition-all">
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                <Link key={ap.id} to={`/apartado/${ap.id}`}
+                  className="block bg-white rounded-2xl p-4 card-hover"
+                  style={{ border: '1px solid #E8DDD0' }}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="min-w-0">
-                      <div className="font-semibold text-text truncate">{ap.articulos?.nombre}</div>
-                      <div className="text-sm text-text-light">{ap.cliente_nombre}</div>
+                      <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
+                      <div className="text-sm text-text-light mt-0.5">{ap.cliente_nombre}</div>
                       {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-bold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
-                      {ap.estado === 'activo' && <div className="text-xs text-dusty font-medium">Faltan ${pend.toLocaleString('es-MX')}</div>}
-                      {ap.estado === 'liquidado' && <div className="text-xs text-sage font-medium">✓ Liquidado</div>}
+                      <div className="font-serif font-semibold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
+                      {ap.estado === 'activo' && (
+                        <div className="text-xs font-medium mt-0.5" style={{ color: '#C4A49A' }}>
+                          Falta ${pend.toLocaleString('es-MX')}
+                        </div>
+                      )}
+                      {ap.estado === 'liquidado' && (
+                        <div className="text-xs font-medium mt-0.5" style={{ color: '#7D9B7E' }}>✓ Liquidado</div>
+                      )}
                     </div>
                   </div>
-                  <div className="bg-sand rounded-full h-2">
-                    <div className="bg-sage rounded-full h-2 transition-all" style={{ width: `${pct}%` }} />
+                  {/* Barra progreso */}
+                  <div className="rounded-full h-1.5" style={{ backgroundColor: '#E8DDD0' }}>
+                    <div className="rounded-full h-1.5 transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
                   </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-text-light">Abonado: ${totalAbonado(ap).toLocaleString('es-MX')}</span>
-                    <span className="text-xs font-medium text-sage">{pct}%</span>
+                  <div className="flex justify-between mt-1.5">
+                    <span className="text-xs text-text-light">Abonado ${totalAbonado(ap).toLocaleString('es-MX')}</span>
+                    <span className="text-xs font-medium" style={{ color: '#B8956A' }}>{pct}%</span>
                   </div>
                 </Link>
               );
@@ -175,38 +196,52 @@ export default function Dashboard() {
             {resumenClientes.map(c => {
               const expandido = clienteExpandido === c.nombre;
               return (
-                <div key={c.nombre} className="bg-white rounded-2xl border border-sand overflow-hidden">
-                  <button
-                    className="w-full p-4 text-left hover:bg-cream transition-colors"
-                    onClick={() => setClienteExpandido(expandido ? null : c.nombre)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
+                <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+                  <button className="w-full p-4 text-left transition-colors hover:bg-cream"
+                    onClick={() => setClienteExpandido(expandido ? null : c.nombre)}>
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-semibold text-text">{c.nombre}</div>
-                        {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
-                        <div className="text-xs text-sage mt-0.5">{c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''} apartado{c.numApartados !== 1 ? 's' : ''}</div>
+                        {/* Inicial */}
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0"
+                            style={{ backgroundColor: '#C4A49A' }}>
+                            {c.nombre.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-serif font-semibold text-text">{c.nombre}</div>
+                            {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
+                            <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
+                              {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xs text-text-light">Debe en total</div>
-                        <div className="font-bold text-dusty text-lg">${c.pendiente.toLocaleString('es-MX')}</div>
-                        <div className="text-xs text-text-light mt-0.5">{expandido ? '▲ Ocultar' : '▼ Ver artículos'}</div>
+                        <div className="text-xs text-text-light">Total pendiente</div>
+                        <div className="font-serif font-semibold text-lg" style={{ color: '#C4A49A' }}>
+                          ${c.pendiente.toLocaleString('es-MX')}
+                        </div>
+                        <div className="text-xs text-text-light">{expandido ? '▲' : '▼'}</div>
                       </div>
                     </div>
                   </button>
-
                   {expandido && (
-                    <div className="border-t border-sand divide-y divide-sand animate-fade-in">
+                    <div className="border-t animate-fade-in" style={{ borderColor: '#E8DDD0' }}>
                       {c.apartados.map(ap => (
-                        <Link key={ap.id} to={`/apartado/${ap.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-cream transition-colors">
+                        <Link key={ap.id} to={`/apartado/${ap.id}`}
+                          className="flex items-center justify-between px-4 py-3 hover:bg-cream transition-colors border-b last:border-0"
+                          style={{ borderColor: '#E8DDD0' }}>
                           <div>
                             <div className="text-sm font-medium text-text">{ap.articulos?.nombre}</div>
                             <div className="text-xs text-text-light">
-                              Abonado ${totalAbonado(ap).toLocaleString('es-MX')} de ${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
+                              ${totalAbonado(ap).toLocaleString('es-MX')} / ${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-bold text-dusty">${pendiente(ap).toLocaleString('es-MX')}</div>
-                            <div className="text-xs text-sage">{porcentaje(ap)}% →</div>
+                            <div className="text-sm font-semibold" style={{ color: '#C4A49A' }}>
+                              ${pendiente(ap).toLocaleString('es-MX')}
+                            </div>
+                            <div className="text-xs" style={{ color: '#B8956A' }}>{porcentaje(ap)}% →</div>
                           </div>
                         </Link>
                       ))}

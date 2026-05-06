@@ -1,22 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #F8F4EF;
+  --color-cream: #F5F0E8;
+  --color-cream-dark: #EDE6D8;
   --color-sage: #7D9B7E;
   --color-sage-light: #A8C0A9;
   --color-sage-dark: #5C7A5D;
   --color-dusty: #C4A49A;
-  --color-dusty-light: #E8D5C0;
-  --color-sand: #E8D5C0;
-  --color-text: #3D2B1F;
-  --color-text-light: #7A6255;
+  --color-dusty-light: #DEC8C1;
+  --color-gold: #B8956A;
+  --color-gold-light: #D4B896;
+  --color-sand: #E8DDD0;
+  --color-text: #2C2422;
+  --color-text-light: #7A6A62;
+  --font-script: 'Great Vibes', cursive;
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-sans: 'Jost', system-ui, sans-serif;
 }
 
 @layer base {
   body {
-    background-color: #F8F4EF;
-    color: #3D2B1F;
-    font-family: system-ui, -apple-system, sans-serif;
+    background-color: #F5F0E8;
+    color: #2C2422;
+    font-family: 'Jost', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     margin: 0;
   }
@@ -24,8 +30,30 @@
 }
 
 @layer utilities {
-  .animate-fade-in { animation: fadeIn 0.3s ease; }
+  .font-script { font-family: 'Great Vibes', cursive; }
+  .font-serif  { font-family: 'Cormorant Garamond', serif; }
+  .font-sans   { font-family: 'Jost', system-ui, sans-serif; }
+
+  .border-gold { border-color: #B8956A; }
+  .text-gold   { color: #B8956A; }
+  .bg-gold     { background-color: #B8956A; }
+
+  .animate-fade-in  { animation: fadeIn 0.3s ease; }
   .animate-slide-up { animation: slideUp 0.4s ease; }
+
+  .card {
+    background: white;
+    border: 1px solid #E8DDD0;
+    border-radius: 1rem;
+  }
+  .card-hover {
+    transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  }
+  .card-hover:hover {
+    box-shadow: 0 4px 20px rgba(184,149,106,0.15);
+    border-color: #D4B896;
+    transform: translateY(-1px);
+  }
 }
 
 @keyframes fadeIn {
