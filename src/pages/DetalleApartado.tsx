@@ -17,6 +17,7 @@ export default function DetalleApartado() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editMonto, setEditMonto] = useState('');
   const [editNota, setEditNota] = useState('');
+  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<string | null>(null);
 
   const cargar = async () => {
     const { data } = await supabase
@@ -275,24 +276,17 @@ export default function DetalleApartado() {
                             style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 pt-1">
-                        <button onClick={() => eliminarAbono(abono.id)}
-                          className="py-2 px-3 rounded-lg text-xs font-semibold text-white"
-                          style={{ backgroundColor: '#C4A49A' }}>
-                          Eliminar
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => { setEditandoId(null); setError(''); }}
+                          className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
+                          style={{ border: '1px solid #E8DDD0' }}>
+                          Cancelar
                         </button>
-                        <div className="flex gap-2 flex-1">
-                          <button onClick={() => { setEditandoId(null); setError(''); }}
-                            className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
-                            style={{ border: '1px solid #E8DDD0' }}>
-                            Cancelar
-                          </button>
-                          <button onClick={() => guardarEdicion(abono)}
-                            className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
-                            style={{ backgroundColor: '#7D9B7E' }}>
-                            Guardar
-                          </button>
-                        </div>
+                        <button onClick={() => guardarEdicion(abono)}
+                          className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
+                          style={{ backgroundColor: '#7D9B7E' }}>
+                          Guardar
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -307,6 +301,13 @@ export default function DetalleApartado() {
                             {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </div>
+                        <button
+                          onClick={() => setConfirmarEliminarAbono(abono.id)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: '#C4A49A' }}
+                          title="Eliminar abono">
+                          🗑️
+                        </button>
                         <button
                           onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
                           className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-colors"
@@ -357,6 +358,26 @@ export default function DetalleApartado() {
               <button onClick={liquidar}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal eliminar abono */}
+      {confirmarEliminarAbono && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar abono?</h3>
+            <p className="text-sm text-text-light mb-5">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmarEliminarAbono(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { eliminarAbono(confirmarEliminarAbono); setConfirmarEliminarAbono(null); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
+                Eliminar
               </button>
             </div>
           </div>
