@@ -119,16 +119,14 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Toggle activo/liquidado */}
-        <div className="bg-white rounded-xl p-1 flex" style={{ border: '1px solid #E8DDD0' }}>
-          {(['activo', 'liquidado'] as const).map(f => (
-            <button key={f} onClick={() => setFiltro(f)}
-              className="flex-1 py-2 rounded-lg text-sm font-medium tracking-wide transition-all capitalize"
-              style={filtro === f ? { backgroundColor: '#7D9B7E', color: 'white' } : { color: '#7A6A62' }}>
-              {f === 'activo' ? 'Activos' : 'Liquidados'}
-            </button>
-          ))}
-        </div>
+        {/* Botón volver cuando se está en liquidados */}
+        {filtro === 'liquidado' && (
+          <button onClick={() => setFiltro('activo')}
+            className="text-sm flex items-center gap-1 animate-fade-in"
+            style={{ color: '#7A6A62' }}>
+            ← Volver a activos
+          </button>
+        )}
 
         {/* Contenido */}
         {cargando ? (
@@ -186,11 +184,19 @@ export default function Dashboard() {
                 </Link>
               );
             })}
+            {filtro === 'activo' && (
+              <button onClick={() => setFiltro('liquidado')}
+                className="w-full py-3 text-sm text-center tracking-wide"
+                style={{ color: '#7A6A62' }}>
+                Ver historial de liquidados →
+              </button>
+            )}
           </div>
         ) : (
           /* Vista por cliente */
           <div className="space-y-3 animate-fade-in">
-            {resumenClientes.map(c => {
+            {resumenClientes.map((c) => {
+
               const expandido = clienteExpandido === c.nombre;
               return (
                 <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
@@ -247,6 +253,11 @@ export default function Dashboard() {
                 </div>
               );
             })}
+            <button onClick={() => setFiltro('liquidado')}
+              className="w-full py-3 text-sm text-center tracking-wide"
+              style={{ color: '#7A6A62' }}>
+              Ver historial de liquidados →
+            </button>
           </div>
         )}
       </main>
