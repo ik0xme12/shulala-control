@@ -76,6 +76,17 @@ export default function DetalleApartado() {
     cargar();
   };
 
+  const eliminarAbono = async (abonoId: string) => {
+    await supabase.from('abonos').delete().eq('id', abonoId);
+    const nuevosAbonos = (apartado!.abonos ?? []).filter(a => a.id !== abonoId);
+    const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
+    if (nuevoTotal < (apartado!.articulos?.precio_total ?? 0) && apartado!.estado === 'liquidado') {
+      await supabase.from('apartados').update({ estado: 'activo' }).eq('id', id);
+    }
+    setEditandoId(null);
+    cargar();
+  };
+
   const eliminar = async () => {
     await supabase.from('abonos').delete().eq('apartado_id', id);
     await supabase.from('apartados').delete().eq('id', id);
@@ -101,6 +112,16 @@ export default function DetalleApartado() {
   const abonosOrdenados = [...(apartado.abonos ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+
+  // Acumulado cronológico por abono (para la mini barra de progreso)
+  const acumulados = (() => {
+    const map = new Map<string, number>();
+    let total = 0;
+    [...(apartado.abonos ?? [])].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    ).forEach(a => { total += a.monto; map.set(a.id, total); });
+    return map;
+  })();
 
   const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
   const inputFocusStyle = { borderColor: '#B8956A' };
@@ -234,11 +255,14 @@ export default function DetalleApartado() {
           {abonosOrdenados.length === 0 ? (
             <p className="text-sm text-text-light text-center py-4 font-serif">Sin abonos registrados</p>
           ) : (
-            <div className="space-y-0">
-              {abonosOrdenados.map((abono: Abono, i) => (
-                <div key={abono.id} className="py-3 border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
+            <div className="space-y-2">
+              {abonosOrdenados.map((abono: Abono, i) => {
+                const acum = acumulados.get(abono.id) ?? 0;
+                const pctAcum = precio > 0 ? Math.min(100, Math.round((acum / precio) * 100)) : 0;
+                return (
+                <div key={abono.id} className="rounded-xl p-4 animate-fade-in" style={{ backgroundColor: '#F5F0E8' }}>
                   {editandoId === abono.id ? (
-                    <div className="space-y-2 animate-fade-in">
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
                           style={{ backgroundColor: '#B8956A' }}>
@@ -247,56 +271,75 @@ export default function DetalleApartado() {
                         <div className="relative flex-1">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
                           <input type="number" value={editMonto} onChange={e => setEditMonto(e.target.value)}
-                            className="w-full pl-6 pr-3 py-1.5 rounded-lg text-sm text-text focus:outline-none"
+                            className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none bg-white"
                             style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
                         </div>
                       </div>
                       <input type="text" value={editNota} onChange={e => setEditNota(e.target.value)}
                         placeholder="Nota (opcional)"
-                        className="w-full px-3 py-1.5 rounded-lg text-sm text-text focus:outline-none uppercase"
+                        className="w-full px-3 py-2 rounded-lg text-sm text-text focus:outline-none uppercase bg-white"
                         style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }} />
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-1">
                         <button onClick={() => { setEditandoId(null); setError(''); }}
-                          className="flex-1 py-1.5 rounded-lg text-xs text-text-light"
+                          className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
                           style={{ border: '1px solid #E8DDD0' }}>
                           Cancelar
                         </button>
+                        <button onClick={() => eliminarAbono(abono.id)}
+                          className="py-2 px-3 rounded-lg text-xs font-semibold text-white"
+                          style={{ backgroundColor: '#DC2626' }}>
+                          Eliminar
+                        </button>
                         <button onClick={() => guardarEdicion(abono)}
-                          className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white"
+                          className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
                           style={{ backgroundColor: '#7D9B7E' }}>
                           Guardar
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
-                          style={{ backgroundColor: '#B8956A' }}>
-                          {abonosOrdenados.length - i}
-                        </div>
-                        <div>
-                          <div className="font-sans font-semibold text-text">
-                            ${abono.monto.toLocaleString('es-MX')} <span className="text-xs text-text-light">MXN</span>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
+                            style={{ backgroundColor: '#B8956A' }}>
+                            {abonosOrdenados.length - i}
                           </div>
-                          {abono.nota && <div className="text-xs text-text-light">{abono.nota}</div>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-xs text-text-light text-right">
-                          {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          <span className="text-xs" style={{ color: '#7A6A62' }}>
+                            {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
                         </div>
                         <button
                           onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
-                          className="text-xs px-2 py-1 rounded-lg transition-colors"
+                          className="text-xs px-2 py-1 rounded-lg bg-white transition-colors"
                           style={{ color: '#B8956A', border: '1px solid #E8DDD0' }}>
-                          ✎
+                          ✎ Editar
                         </button>
+                      </div>
+                      <div className="font-sans font-bold text-2xl tracking-tight" style={{ color: '#2C2422' }}>
+                        ${abono.monto.toLocaleString('es-MX')}
+                        <span className="text-sm font-normal ml-1" style={{ color: '#7A6A62' }}>MXN</span>
+                      </div>
+                      {abono.nota && (
+                        <div className="text-xs mt-0.5 tracking-wide" style={{ color: '#7A6A62' }}>{abono.nota}</div>
+                      )}
+                      <div className="mt-3">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-xs" style={{ color: '#7A6A62' }}>Acumulado</span>
+                          <span className="text-xs font-medium" style={{ color: pctAcum === 100 ? '#5C7A5D' : '#B8956A' }}>
+                            {pctAcum}%
+                          </span>
+                        </div>
+                        <div className="rounded-full h-1.5 bg-white">
+                          <div className="rounded-full h-1.5 transition-all"
+                            style={{ width: `${pctAcum}%`, backgroundColor: pctAcum === 100 ? '#7D9B7E' : '#B8956A' }} />
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
