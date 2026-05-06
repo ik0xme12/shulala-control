@@ -16,6 +16,24 @@ const inputCls = "w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
 const inputFocusStyle = { borderColor: '#B8956A' };
 
+function Seccion({ icono, titulo, children }: { icono: string; titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-lg">{icono}</span>
+        <h2 className="font-serif font-semibold text-text tracking-wide">{titulo}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-xs tracking-widest uppercase mb-1.5" style={{ color: '#7A6A62' }}>{children}</label>
+  );
+}
+
 export default function NuevoApartado() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -87,20 +105,6 @@ export default function NuevoApartado() {
     }
     navigate(`/apartado/${ap.id}`);
   };
-
-  const Seccion = ({ icono, titulo, children }: { icono: string; titulo: string; children: React.ReactNode }) => (
-    <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">{icono}</span>
-        <h2 className="font-serif font-semibold text-text tracking-wide">{titulo}</h2>
-      </div>
-      {children}
-    </div>
-  );
-
-  const Label = ({ children }: { children: React.ReactNode }) => (
-    <label className="block text-xs tracking-widest uppercase mb-1.5" style={{ color: '#7A6A62' }}>{children}</label>
-  );
 
   return (
     <div className="min-h-screen bg-cream">
