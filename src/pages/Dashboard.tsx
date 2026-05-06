@@ -2,10 +2,22 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, type Apartado } from '../lib/supabase';
 
+type VistaTab = 'apartados' | 'clientes';
+
+type ResumenCliente = {
+  nombre: string;
+  tel: string;
+  pendiente: number;
+  numApartados: number;
+  apartados: Apartado[];
+};
+
 export default function Dashboard() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<'activo' | 'liquidado'>('activo');
+  const [vista, setVista] = useState<VistaTab>('apartados');
+  const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
 
   const cargar = async () => {
     setCargando(true);
@@ -32,13 +44,26 @@ export default function Dashboard() {
   const pendiente = (ap: Apartado) =>
     (ap.articulos?.precio_total ?? 0) - totalAbonado(ap);
 
-  const totalPendienteGeneral = apartados
-    .filter(a => a.estado === 'activo')
-    .reduce((s, a) => s + pendiente(a), 0);
+  const totalPendienteGeneral = apartados.reduce((s, a) => s + pendiente(a), 0);
+
+  // Agrupar por cliente
+  const resumenClientes = (() => {
+    const mapa = new Map<string, ResumenCliente>();
+    for (const ap of apartados) {
+      const key = ap.cliente_nombre;
+      if (!mapa.has(key)) {
+        mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0, apartados: [] });
+      }
+      const c = mapa.get(key)!;
+      c.pendiente += pendiente(ap);
+      c.numApartados++;
+      c.apartados.push(ap);
+    }
+    return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
+  })();
 
   return (
     <div className="min-h-screen bg-cream">
-      {/* Header */}
       <header className="bg-white border-b border-sand sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
@@ -47,10 +72,7 @@ export default function Dashboard() {
             </h1>
             <p className="text-xs text-text-light">Panel de apartados</p>
           </div>
-          <Link
-            to="/nuevo"
-            className="bg-sage text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-sage-dark"
-          >
+          <Link to="/nuevo" className="bg-sage text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-sage-dark">
             + Nuevo apartado
           </Link>
         </div>
@@ -59,37 +81,49 @@ export default function Dashboard() {
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
         {/* Stats */}
         {filtro === 'activo' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-white rounded-2xl p-4 border border-sand">
               <div className="text-2xl font-bold text-sage">{apartados.length}</div>
-              <div className="text-xs text-text-light">Apartados activos</div>
+              <div className="text-xs text-text-light">Apartados</div>
             </div>
             <div className="bg-white rounded-2xl p-4 border border-sand">
-              <div className="text-2xl font-bold text-dusty">
-                ${totalPendienteGeneral.toLocaleString('es-MX')}
-              </div>
+              <div className="text-2xl font-bold text-dusty">{resumenClientes.length}</div>
+              <div className="text-xs text-text-light">Clientes</div>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-sand">
+              <div className="text-lg font-bold text-dusty">${totalPendienteGeneral.toLocaleString('es-MX')}</div>
               <div className="text-xs text-text-light">Pendiente total</div>
             </div>
           </div>
         )}
 
-        {/* Filtro */}
+        {/* Filtro activo/liquidado */}
         <div className="bg-white rounded-xl p-1 flex border border-sand">
-          <button
-            onClick={() => setFiltro('activo')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'activo' ? 'bg-sage text-white' : 'text-text-light'}`}
-          >
+          <button onClick={() => setFiltro('activo')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'activo' ? 'bg-sage text-white' : 'text-text-light'}`}>
             Activos
           </button>
-          <button
-            onClick={() => setFiltro('liquidado')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'liquidado' ? 'bg-sage text-white' : 'text-text-light'}`}
-          >
+          <button onClick={() => setFiltro('liquidado')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${filtro === 'liquidado' ? 'bg-sage text-white' : 'text-text-light'}`}>
             Liquidados
           </button>
         </div>
 
-        {/* Lista */}
+        {/* Vista apartados / clientes */}
+        {filtro === 'activo' && !cargando && apartados.length > 0 && (
+          <div className="bg-white rounded-xl p-1 flex border border-sand">
+            <button onClick={() => setVista('apartados')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${vista === 'apartados' ? 'bg-dusty/20 text-dusty' : 'text-text-light'}`}>
+              Por artículo
+            </button>
+            <button onClick={() => setVista('clientes')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${vista === 'clientes' ? 'bg-dusty/20 text-dusty' : 'text-text-light'}`}>
+              Por cliente
+            </button>
+          </div>
+        )}
+
+        {/* Contenido */}
         {cargando ? (
           <div className="text-center py-12 text-text-light text-sm">Cargando...</div>
         ) : apartados.length === 0 ? (
@@ -104,7 +138,8 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
-        ) : (
+        ) : vista === 'apartados' || filtro === 'liquidado' ? (
+          /* Vista por artículo */
           <div className="space-y-3 animate-fade-in">
             {apartados.map(ap => {
               const pct = porcentaje(ap);
@@ -119,25 +154,65 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
-                      {ap.estado === 'activo' && (
-                        <div className="text-xs text-dusty font-medium">Faltan ${pend.toLocaleString('es-MX')}</div>
-                      )}
-                      {ap.estado === 'liquidado' && (
-                        <div className="text-xs text-sage font-medium">✓ Liquidado</div>
-                      )}
+                      {ap.estado === 'activo' && <div className="text-xs text-dusty font-medium">Faltan ${pend.toLocaleString('es-MX')}</div>}
+                      {ap.estado === 'liquidado' && <div className="text-xs text-sage font-medium">✓ Liquidado</div>}
                     </div>
                   </div>
                   <div className="bg-sand rounded-full h-2">
-                    <div
-                      className="bg-sage rounded-full h-2 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
+                    <div className="bg-sage rounded-full h-2 transition-all" style={{ width: `${pct}%` }} />
                   </div>
                   <div className="flex justify-between mt-1">
                     <span className="text-xs text-text-light">Abonado: ${totalAbonado(ap).toLocaleString('es-MX')}</span>
                     <span className="text-xs font-medium text-sage">{pct}%</span>
                   </div>
                 </Link>
+              );
+            })}
+          </div>
+        ) : (
+          /* Vista por cliente */
+          <div className="space-y-3 animate-fade-in">
+            {resumenClientes.map(c => {
+              const expandido = clienteExpandido === c.nombre;
+              return (
+                <div key={c.nombre} className="bg-white rounded-2xl border border-sand overflow-hidden">
+                  <button
+                    className="w-full p-4 text-left hover:bg-cream transition-colors"
+                    onClick={() => setClienteExpandido(expandido ? null : c.nombre)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-text">{c.nombre}</div>
+                        {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
+                        <div className="text-xs text-sage mt-0.5">{c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''} apartado{c.numApartados !== 1 ? 's' : ''}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs text-text-light">Debe en total</div>
+                        <div className="font-bold text-dusty text-lg">${c.pendiente.toLocaleString('es-MX')}</div>
+                        <div className="text-xs text-text-light mt-0.5">{expandido ? '▲ Ocultar' : '▼ Ver artículos'}</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {expandido && (
+                    <div className="border-t border-sand divide-y divide-sand animate-fade-in">
+                      {c.apartados.map(ap => (
+                        <Link key={ap.id} to={`/apartado/${ap.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-cream transition-colors">
+                          <div>
+                            <div className="text-sm font-medium text-text">{ap.articulos?.nombre}</div>
+                            <div className="text-xs text-text-light">
+                              Abonado ${totalAbonado(ap).toLocaleString('es-MX')} de ${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-bold text-dusty">${pendiente(ap).toLocaleString('es-MX')}</div>
+                            <div className="text-xs text-sage">{porcentaje(ap)}% →</div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
