@@ -200,7 +200,7 @@ export default function Dashboard() {
               const expandido = clienteExpandido === c.nombre;
               return (
                 <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden card-hover" style={{ border: '1px solid #E8DDD0' }}>
-                  <button className="w-full p-4 text-left transition-colors hover:bg-cream"
+                  <button className="w-full p-4 text-left"
                     onClick={() => setClienteExpandido(expandido ? null : c.nombre)}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -232,7 +232,7 @@ export default function Dashboard() {
                     <div className="border-t animate-fade-in" style={{ borderColor: '#E8DDD0' }}>
                       {c.apartados.map(ap => (
                         <Link key={ap.id} to={`/apartado/${ap.id}`}
-                          className="flex items-center justify-between px-4 py-3 hover:bg-cream transition-colors border-b last:border-0"
+                          className="flex items-center justify-between px-4 py-3 transition-colors border-b last:border-0 hover:bg-cream/50"
                           style={{ borderColor: '#E8DDD0' }}>
                           <div>
                             <div className="text-sm font-medium text-text">{ap.articulos?.nombre}</div>
