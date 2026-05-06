@@ -278,7 +278,7 @@ export default function DetalleApartado() {
                       <div className="flex items-center gap-2 pt-1">
                         <button onClick={() => eliminarAbono(abono.id)}
                           className="py-2 px-3 rounded-lg text-xs font-semibold text-white"
-                          style={{ backgroundColor: '#DC2626' }}>
+                          style={{ backgroundColor: '#C4A49A' }}>
                           Eliminar
                         </button>
                         <div className="flex gap-2 flex-1">
