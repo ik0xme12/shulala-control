@@ -91,19 +91,31 @@ export default function Dashboard() {
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
 
-        {/* Stats */}
+        {/* Stats / navegación de vista */}
         {filtro === 'activo' && !cargando && (
           <div className="grid grid-cols-3 gap-3 animate-slide-up">
-            {[
-              { valor: apartados.length.toString(), label: 'Apartados', color: '#7D9B7E' },
-              { valor: resumenClientes.length.toString(), label: 'Clientes', color: '#C4A49A' },
-              { valor: `$${totalPendienteGeneral.toLocaleString('es-MX')}`, label: 'Por cobrar', color: '#B8956A' },
-            ].map(s => (
-              <div key={s.label} className="bg-white rounded-2xl p-3 text-center" style={{ border: '1px solid #E8DDD0' }}>
-                <div className="font-sans font-bold text-xl tracking-tight" style={{ color: s.color }}>{s.valor}</div>
-                <div className="text-xs text-text-light tracking-wide mt-0.5">{s.label}</div>
-              </div>
-            ))}
+            <button onClick={() => setVista('apartados')}
+              className="rounded-2xl p-3 text-center transition-all"
+              style={vista === 'apartados'
+                ? { backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid #7D9B7E' }
+                : { backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
+              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#7D9B7E' }}>{apartados.length}</div>
+              <div className="text-xs text-text-light tracking-wide mt-0.5">Apartados</div>
+            </button>
+
+            <button onClick={() => setVista('clientes')}
+              className="rounded-2xl p-3 text-center transition-all"
+              style={vista === 'clientes'
+                ? { backgroundColor: 'rgba(196,164,154,0.12)', border: '2px solid #C4A49A' }
+                : { backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
+              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#C4A49A' }}>{resumenClientes.length}</div>
+              <div className="text-xs text-text-light tracking-wide mt-0.5">Clientes</div>
+            </button>
+
+            <div className="bg-white rounded-2xl p-3 text-center" style={{ border: '1px solid #E8DDD0' }}>
+              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#B8956A' }}>${totalPendienteGeneral.toLocaleString('es-MX')}</div>
+              <div className="text-xs text-text-light tracking-wide mt-0.5">Por cobrar</div>
+            </div>
           </div>
         )}
 
@@ -117,21 +129,6 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
-
-        {/* Toggle vista */}
-        {filtro === 'activo' && !cargando && apartados.length > 0 && (
-          <div className="flex gap-2 justify-center">
-            {(['apartados', 'clientes'] as const).map(v => (
-              <button key={v} onClick={() => setVista(v)}
-                className="px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase transition-all"
-                style={vista === v
-                  ? { backgroundColor: '#C4A49A', color: 'white' }
-                  : { backgroundColor: 'white', color: '#7A6A62', border: '1px solid #E8DDD0' }}>
-                {v === 'apartados' ? 'Por artículo' : 'Por cliente'}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Contenido */}
         {cargando ? (
