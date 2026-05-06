@@ -290,8 +290,20 @@ export default function DetalleApartado() {
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="relative">
+                      <button
+                        onClick={() => setConfirmarEliminarAbono(abono.id)}
+                        className="absolute top-0 right-0 p-1 rounded-lg transition-colors"
+                        style={{ color: '#C4A49A' }}
+                        title="Eliminar abono">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                        </svg>
+                      </button>
+                      <div className="flex items-center justify-between mb-2 pr-7">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
                             style={{ backgroundColor: '#B8956A' }}>
@@ -301,13 +313,6 @@ export default function DetalleApartado() {
                             {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </div>
-                        <button
-                          onClick={() => setConfirmarEliminarAbono(abono.id)}
-                          className="p-1.5 rounded-lg transition-colors"
-                          style={{ color: '#C4A49A' }}
-                          title="Eliminar abono">
-                          🗑️
-                        </button>
                         <button
                           onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
                           className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-colors"
