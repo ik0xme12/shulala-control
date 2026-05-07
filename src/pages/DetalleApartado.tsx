@@ -18,6 +18,12 @@ export default function DetalleApartado() {
   const [editMonto, setEditMonto] = useState('');
   const [editNota, setEditNota] = useState('');
   const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<string | null>(null);
+  const [editandoLugar, setEditandoLugar] = useState(false);
+  const [nuevoLugar, setNuevoLugar] = useState('');
+  const [lugaresDisponibles, setLugaresDisponibles] = useState<string[]>([]);
+  const [mostrarLugares, setMostrarLugares] = useState(false);
+  const [editandoDias, setEditandoDias] = useState(false);
+  const [nuevoDias, setNuevoDias] = useState('');
 
   const cargar = async () => {
     const { data } = await supabase
@@ -30,6 +36,14 @@ export default function DetalleApartado() {
   };
 
   useEffect(() => { cargar(); }, [id]);
+
+  useEffect(() => {
+    supabase.from('apartados').select('lugar_entrega').not('lugar_entrega', 'is', null)
+      .then(({ data }) => {
+        const unicos = [...new Set((data ?? []).map(d => d.lugar_entrega as string))];
+        setLugaresDisponibles(unicos.sort());
+      });
+  }, []);
 
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
@@ -96,6 +110,24 @@ export default function DetalleApartado() {
     await supabase.from('abonos').delete().eq('apartado_id', id);
     await supabase.from('apartados').delete().eq('id', id);
     navigate('/');
+  };
+
+  const guardarDias = async () => {
+    const dias = parseInt(nuevoDias);
+    await supabase.from('apartados').update({
+      dias_limite: dias > 0 ? dias : null
+    }).eq('id', id);
+    setEditandoDias(false);
+    cargar();
+  };
+
+  const guardarLugar = async () => {
+    await supabase.from('apartados').update({
+      lugar_entrega: nuevoLugar.trim().toUpperCase() || null
+    }).eq('id', id);
+    setEditandoLugar(false);
+    setMostrarLugares(false);
+    cargar();
   };
 
   if (cargando) return (
@@ -175,20 +207,114 @@ export default function DetalleApartado() {
                 {apartado.cliente_tel && <div className="text-xs text-text-light">{apartado.cliente_tel}</div>}
               </div>
             </div>
-            {(apartado.dias_limite || apartado.lugar_entrega) && (
-              <div className="flex flex-wrap gap-3 mt-2">
-                {apartado.dias_limite && (
-                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}>
-                    📅 {apartado.dias_limite} días para liquidar
-                  </span>
+            <div className="flex flex-wrap gap-2 mt-2 items-start">
+                {editandoDias ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={nuevoDias}
+                      onChange={e => setNuevoDias(e.target.value)}
+                      placeholder="Días"
+                      min="1"
+                      autoFocus
+                      className="text-xs px-3 py-1.5 rounded-xl focus:outline-none"
+                      style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '90px' }}
+                    />
+                    <button onClick={() => setEditandoDias(false)}
+                      className="text-xs px-2.5 py-1 rounded-lg text-text-light"
+                      style={{ border: '1px solid #E8DDD0' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={guardarDias}
+                      className="text-xs px-2.5 py-1 rounded-lg text-white font-medium"
+                      style={{ backgroundColor: '#7D9B7E' }}>
+                      Guardar
+                    </button>
+                  </div>
+                ) : apartado.dias_limite ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}>
+                      📅 {apartado.dias_limite} días para liquidar
+                    </span>
+                    <button
+                      onClick={() => { setEditandoDias(true); setNuevoDias(apartado.dias_limite?.toString() ?? ''); }}
+                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white transition-colors"
+                      style={{ backgroundColor: '#B8956A' }}>
+                      ✎ Editar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setEditandoDias(true); setNuevoDias(''); }}
+                    className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
+                    style={{ border: '1px dashed #C4A49A', color: '#B8956A' }}>
+                    📅 Agregar días
+                  </button>
                 )}
-                {apartado.lugar_entrega && (
-                  <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
-                    📍 {apartado.lugar_entrega}
-                  </span>
+                {editandoLugar ? (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={nuevoLugar}
+                      onChange={e => { setNuevoLugar(e.target.value); setMostrarLugares(true); }}
+                      onFocus={() => setMostrarLugares(true)}
+                      onBlur={() => setTimeout(() => setMostrarLugares(false), 150)}
+                      placeholder="Lugar de entrega..."
+                      autoFocus
+                      className="text-xs px-3 py-1.5 rounded-xl focus:outline-none uppercase"
+                      style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '180px' }}
+                    />
+                    {mostrarLugares && lugaresDisponibles.filter(l =>
+                      !nuevoLugar || l.toLowerCase().includes(nuevoLugar.toLowerCase())
+                    ).length > 0 && (
+                      <div className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
+                        style={{ border: '1px solid #E8DDD0', minWidth: '180px' }}>
+                        {lugaresDisponibles
+                          .filter(l => !nuevoLugar || l.toLowerCase().includes(nuevoLugar.toLowerCase()))
+                          .map(lugar => (
+                            <button key={lugar}
+                              onMouseDown={e => e.preventDefault()}
+                              onClick={() => { setNuevoLugar(lugar); setMostrarLugares(false); }}
+                              className="w-full text-left px-3 py-2 text-xs text-text hover:bg-cream transition-colors">
+                              {lugar}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                    <div className="flex gap-1 mt-1.5">
+                      <button onClick={() => { setEditandoLugar(false); setMostrarLugares(false); }}
+                        className="text-xs px-2.5 py-1 rounded-lg text-text-light"
+                        style={{ border: '1px solid #E8DDD0' }}>
+                        Cancelar
+                      </button>
+                      <button onClick={guardarLugar}
+                        className="text-xs px-2.5 py-1 rounded-lg text-white font-medium"
+                        style={{ backgroundColor: '#7D9B7E' }}>
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                ) : apartado.lugar_entrega ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
+                      📍 {apartado.lugar_entrega}
+                    </span>
+                    <button
+                      onClick={() => { setEditandoLugar(true); setNuevoLugar(apartado.lugar_entrega ?? ''); }}
+                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white transition-colors"
+                      style={{ backgroundColor: '#7D9B7E' }}>
+                      ✎ Editar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setEditandoLugar(true); setNuevoLugar(''); }}
+                    className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
+                    style={{ border: '1px dashed #C4A49A', color: '#B8956A' }}>
+                    📍 Agregar lugar
+                  </button>
                 )}
               </div>
-            )}
             {apartado.notas && (
               <p className="text-xs text-text-light mt-2 italic">📝 {apartado.notas}</p>
             )}
