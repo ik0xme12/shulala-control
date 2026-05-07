@@ -146,6 +146,16 @@ function FilaApartado({ ap, entregando, onToggle }: {
         </div>
         <div className="text-xs text-text-light mt-0.5">{ap.cliente_nombre}</div>
         {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
+        {ap.estado === 'activo' && ap.dias_limite && (() => {
+          const diff = Math.floor((new Date().getTime() - new Date(ap.created_at).getTime()) / (1000 * 60 * 60 * 24));
+          const dias = ap.dias_limite - diff;
+          return (
+            <div className="text-xs mt-0.5 font-medium"
+              style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
+              {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
+            </div>
+          );
+        })()}
         {ap.estado === 'activo' && (() => {
           const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
           const pendiente = (ap.articulos?.precio_total ?? 0) - abonado;
