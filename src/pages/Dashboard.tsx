@@ -208,40 +208,42 @@ export default function Dashboard() {
               const dias = diasRestantes(ap);
               return (
                 <Link key={ap.id} to={`/apartado/${ap.id}`}
-                  className="block bg-white rounded-2xl p-4 card-hover"
+                  className="block bg-white rounded-2xl overflow-hidden card-hover"
                   style={{ border: '1px solid #E8DDD0' }}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
-                      <div className="text-sm text-text-light mt-0.5">{ap.cliente_nombre}</div>
-                      {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
-                      {ap.estado === 'activo' && dias !== null && (
-                        <div className="text-xs mt-1 font-medium"
-                          style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
-                          {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
-                        </div>
-                      )}
-                    </div>
+                  {/* Encabezado: nombre del producto */}
+                  <div className="flex items-start justify-between gap-3 px-4 py-3"
+                    style={{ backgroundColor: '#E8DDD0', borderBottom: '1px solid #D4C4B0' }}>
+                    <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
                     <div className="text-right shrink-0">
                       <div className="font-sans font-semibold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
                       {ap.estado === 'activo' && (
-                        <div className="text-xs font-medium mt-0.5" style={{ color: '#C4A49A' }}>
+                        <div className="text-xs font-medium mt-0.5" style={{ color: '#9A7A70' }}>
                           Falta ${pend.toLocaleString('es-MX')}
                         </div>
                       )}
                       {ap.estado === 'liquidado' && (
-                        <div className="text-xs font-medium mt-0.5" style={{ color: '#7D9B7E' }}>✓ Liquidado</div>
+                        <div className="text-xs font-medium mt-0.5" style={{ color: '#5C7A5D' }}>✓ Liquidado</div>
                       )}
                     </div>
                   </div>
-                  {/* Barra progreso */}
-                  <div className="rounded-full h-1.5" style={{ backgroundColor: '#E8DDD0' }}>
-                    <div className="rounded-full h-1.5 transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
-                  </div>
-                  <div className="flex justify-between mt-1.5">
-                    <span className="text-xs text-text-light">Abonado ${totalAbonado(ap).toLocaleString('es-MX')}</span>
-                    <span className="text-xs font-medium" style={{ color: '#B8956A' }}>{pct}%</span>
+                  {/* Cuerpo: cliente + progreso */}
+                  <div className="px-4 py-3">
+                    <div className="text-sm text-text-light">{ap.cliente_nombre}</div>
+                    {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
+                    {ap.estado === 'activo' && dias !== null && (
+                      <div className="text-xs mt-1 font-medium"
+                        style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
+                        {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
+                      </div>
+                    )}
+                    <div className="rounded-full h-1.5 mt-3" style={{ backgroundColor: '#E8DDD0' }}>
+                      <div className="rounded-full h-1.5 transition-all"
+                        style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
+                    </div>
+                    <div className="flex justify-between mt-1.5">
+                      <span className="text-xs text-text-light">Abonado ${totalAbonado(ap).toLocaleString('es-MX')}</span>
+                      <span className="text-xs font-medium" style={{ color: '#B8956A' }}>{pct}%</span>
+                    </div>
                   </div>
                 </Link>
               );
