@@ -48,6 +48,14 @@ export default function Dashboard() {
 
   const totalPendienteGeneral = apartados.reduce((s, a) => s + pendiente(a), 0);
 
+  const diasRestantes = (ap: Apartado) => {
+    if (!ap.dias_limite) return null;
+    const creado = new Date(ap.created_at);
+    const hoy = new Date();
+    const diff = Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
+    return ap.dias_limite - diff;
+  };
+
   const resumenClientes = (() => {
     const mapa = new Map<string, ResumenCliente>();
     for (const ap of apartados) {
@@ -197,6 +205,7 @@ export default function Dashboard() {
             {apartadosFiltrados.map(ap => {
               const pct = porcentaje(ap);
               const pend = pendiente(ap);
+              const dias = diasRestantes(ap);
               return (
                 <Link key={ap.id} to={`/apartado/${ap.id}`}
                   className="block bg-white rounded-2xl p-4 card-hover"
@@ -206,6 +215,12 @@ export default function Dashboard() {
                       <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
                       <div className="text-sm text-text-light mt-0.5">{ap.cliente_nombre}</div>
                       {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
+                      {ap.estado === 'activo' && dias !== null && (
+                        <div className="text-xs mt-1 font-medium"
+                          style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
+                          {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-sans font-semibold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
