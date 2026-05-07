@@ -91,7 +91,7 @@ export default function Entregas() {
         {grupos.map(([lugar, aps]) => (
           <div key={lugar} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
             <div className="flex items-center gap-2 px-5 py-3"
-              style={{ borderBottom: '1px solid #E8DDD0', backgroundColor: 'rgba(184,149,106,0.06)' }}>
+              style={{ borderBottom: '1px solid #E8DDD0', backgroundColor: '#F5F0E8' }}>
               <span style={{ color: '#B8956A' }}>📍</span>
               <span className="font-serif font-semibold text-text tracking-wide">{lugar}</span>
               <span className="ml-auto font-sans font-bold text-sm" style={{ color: '#B8956A' }}>{aps.length}</span>
