@@ -7,6 +7,7 @@ export default function Entregas() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [entregando, setEntregando] = useState<string | null>(null);
+  const [filtroActivo, setFiltroActivo] = useState(true);
   const [filtroPendiente, setFiltroPendiente] = useState(true);
   const [filtroEntregado, setFiltroEntregado] = useState(false);
 
@@ -15,7 +16,6 @@ export default function Entregas() {
     const { data } = await supabase
       .from('apartados')
       .select('*, articulos(*), abonos(*)')
-      .eq('estado', 'liquidado')
       .order('created_at', { ascending: false });
     setApartados(data ?? []);
     setCargando(false);
@@ -30,9 +30,11 @@ export default function Entregas() {
     cargar();
   };
 
-  const filtrados = apartados.filter(ap =>
-    (filtroPendiente && !ap.entregado) || (filtroEntregado && ap.entregado)
-  );
+  const filtrados = apartados.filter(ap => {
+    if (ap.estado === 'activo') return filtroActivo;
+    if (ap.entregado) return filtroEntregado;
+    return filtroPendiente;
+  });
 
   // Agrupar por lugar_entrega
   const mapa = new Map<string, Apartado[]>();
@@ -44,7 +46,8 @@ export default function Entregas() {
   }
   const grupos = Array.from(mapa.entries());
 
-  const pendienteCount = apartados.filter(a => !a.entregado).length;
+  const activoCount = apartados.filter(a => a.estado === 'activo').length;
+  const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
   const entregadoCount = apartados.filter(a => a.entregado).length;
 
   if (cargando) return (
@@ -60,16 +63,19 @@ export default function Entregas() {
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
         {/* Filtros */}
-        <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-6" style={{ border: '1px solid #E8DDD0' }}>
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input type="checkbox" checked={filtroPendiente} onChange={e => setFiltroPendiente(e.target.checked)}
-              className="w-4 h-4 rounded accent-gold" />
-            <span className="text-sm text-text">Pendientes</span>
+        <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-5 flex-wrap" style={{ border: '1px solid #E8DDD0' }}>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={filtroActivo} onChange={e => setFiltroActivo(e.target.checked)} className="w-4 h-4 rounded" />
+            <span className="text-sm text-text">Activos</span>
+            <span className="font-sans font-bold text-sm" style={{ color: '#C4A49A' }}>{activoCount}</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={filtroPendiente} onChange={e => setFiltroPendiente(e.target.checked)} className="w-4 h-4 rounded" />
+            <span className="text-sm text-text">Por entregar</span>
             <span className="font-sans font-bold text-sm" style={{ color: '#B8956A' }}>{pendienteCount}</span>
           </label>
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <input type="checkbox" checked={filtroEntregado} onChange={e => setFiltroEntregado(e.target.checked)}
-              className="w-4 h-4 rounded accent-sage" />
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={filtroEntregado} onChange={e => setFiltroEntregado(e.target.checked)} className="w-4 h-4 rounded" />
             <span className="text-sm text-text">Entregados</span>
             <span className="font-sans font-bold text-sm" style={{ color: '#7D9B7E' }}>{entregadoCount}</span>
           </label>
@@ -125,11 +131,18 @@ function FilaApartado({ ap, entregando, onToggle }: {
   entregando: string | null;
   onToggle: (ap: Apartado) => void;
 }) {
+  const puedeEntregar = ap.estado === 'liquidado';
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <Link to={`/apartado/${ap.id}`} className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-serif font-semibold text-text text-sm truncate">{ap.articulos?.nombre}</span>
+          {ap.estado === 'activo' && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full shrink-0"
+              style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#9A7A70' }}>
+              Por liquidar
+            </span>
+          )}
           {ap.entregado && (
             <span className="text-xs px-1.5 py-0.5 rounded-full shrink-0 font-medium"
               style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
@@ -140,24 +153,34 @@ function FilaApartado({ ap, entregando, onToggle }: {
         <div className="text-xs text-text-light mt-0.5">{ap.cliente_nombre}</div>
         {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
       </Link>
-      <button
-        onClick={() => onToggle(ap)}
-        disabled={entregando === ap.id}
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50"
-        style={{ backgroundColor: ap.entregado ? '#7D9B7E' : '#C4A49A' }}
-        title={ap.entregado ? 'Marcar como pendiente' : 'Marcar como entregado'}>
-        {entregando === ap.id ? (
-          <span className="text-xs">·</span>
-        ) : ap.entregado ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
+      {puedeEntregar ? (
+        <button
+          onClick={() => onToggle(ap)}
+          disabled={entregando === ap.id}
+          className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50"
+          style={{ backgroundColor: ap.entregado ? '#7D9B7E' : '#C4A49A' }}
+          title={ap.entregado ? 'Revertir entrega' : 'Marcar como entregado'}>
+          {entregando === ap.id ? (
+            <span className="text-xs">·</span>
+          ) : ap.entregado ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          )}
+        </button>
+      ) : (
+        <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: '#F5F0E8' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C4A49A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-        )}
-      </button>
+        </div>
+      )}
     </div>
   );
 }
