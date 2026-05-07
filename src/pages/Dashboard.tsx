@@ -208,41 +208,32 @@ export default function Dashboard() {
               const dias = diasRestantes(ap);
               return (
                 <Link key={ap.id} to={`/apartado/${ap.id}`}
-                  className="block bg-white rounded-2xl overflow-hidden card-hover"
+                  className="block bg-white rounded-2xl p-4 card-hover"
                   style={{ border: '1px solid #E8DDD0' }}>
-                  {/* Encabezado: nombre del producto */}
-                  <div className="flex items-start justify-between gap-3 px-4 py-3"
-                    style={{ backgroundColor: '#E8DDD0', borderBottom: '1px solid #D4C4B0' }}>
+                  {/* Fila 1: nombre + monto pendiente */}
+                  <div className="flex items-baseline justify-between gap-3">
                     <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
-                    <div className="text-right shrink-0">
-                      <div className="font-sans font-semibold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
-                      {ap.estado === 'activo' && (
-                        <div className="font-sans font-semibold" style={{ color: '#C4A49A' }}>
-                          ${pend.toLocaleString('es-MX')}
-                        </div>
-                      )}
-                      {ap.estado === 'liquidado' && (
-                        <div className="text-xs font-medium mt-0.5" style={{ color: '#5C7A5D' }}>✓ Liquidado</div>
-                      )}
+                    <div className="shrink-0 font-sans font-semibold" style={{ color: pct === 100 ? '#7D9B7E' : '#C4A49A' }}>
+                      {pct === 100 ? '✓ Liquidado' : `$${pend.toLocaleString('es-MX')}`}
                     </div>
                   </div>
-                  {/* Cuerpo: cliente + progreso */}
-                  <div className="px-4 py-3">
-                    <div className="text-sm text-text-light">{ap.cliente_nombre}</div>
+                  {/* Fila 2: cliente + días */}
+                  <div className="flex items-center justify-between gap-3 mt-1">
+                    <div className="text-sm text-text-light truncate">{ap.cliente_nombre}</div>
                     {ap.estado === 'activo' && dias !== null && (
-                      <div className="text-xs mt-1 font-medium"
+                      <div className="text-xs font-medium shrink-0"
                         style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
-                        {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
+                        {dias <= 0 ? `⚠ ${Math.abs(dias)}d vencido` : `📅 ${dias}d`}
                       </div>
                     )}
-                    <div className="rounded-full h-1.5 mt-3" style={{ backgroundColor: '#E8DDD0' }}>
-                      <div className="rounded-full h-1.5 transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
-                    </div>
-                    <div className="flex justify-between mt-1.5">
-                      <span className="text-xs text-text-light">Abonado ${totalAbonado(ap).toLocaleString('es-MX')}</span>
-                      <span className="text-xs font-medium" style={{ color: '#B8956A' }}>{pct}%</span>
-                    </div>
+                  </div>
+                  {/* Barra progreso */}
+                  <div className="rounded-full h-1.5 mt-3" style={{ backgroundColor: '#E8DDD0' }}>
+                    <div className="rounded-full h-1.5 transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
+                  </div>
+                  <div className="flex justify-end mt-1">
+                    <span className="text-xs" style={{ color: '#B8956A' }}>{pct}%</span>
                   </div>
                 </Link>
               );
