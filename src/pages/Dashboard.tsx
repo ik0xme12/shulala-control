@@ -217,8 +217,8 @@ export default function Dashboard() {
                     <div className="text-right shrink-0">
                       <div className="font-sans font-semibold text-text">${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}</div>
                       {ap.estado === 'activo' && (
-                        <div className="text-xs font-medium mt-0.5" style={{ color: '#9A7A70' }}>
-                          Falta ${pend.toLocaleString('es-MX')}
+                        <div className="font-sans font-semibold" style={{ color: '#C4A49A' }}>
+                          ${pend.toLocaleString('es-MX')}
                         </div>
                       )}
                       {ap.estado === 'liquidado' && (
@@ -229,7 +229,6 @@ export default function Dashboard() {
                   {/* Cuerpo: cliente + progreso */}
                   <div className="px-4 py-3">
                     <div className="text-sm text-text-light">{ap.cliente_nombre}</div>
-                    {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
                     {ap.estado === 'activo' && dias !== null && (
                       <div className="text-xs mt-1 font-medium"
                         style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
