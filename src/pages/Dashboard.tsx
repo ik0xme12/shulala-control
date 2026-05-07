@@ -72,11 +72,12 @@ export default function Dashboard() {
   })();
 
   const q = busqueda.trim().toLowerCase();
-  const apartadosFiltrados = q
+  const apartadosFiltrados = (q
     ? apartados.filter(ap =>
         (ap.articulos?.nombre ?? '').toLowerCase().includes(q) ||
         ap.cliente_nombre.toLowerCase().includes(q))
-    : apartados;
+    : apartados
+  ).slice().sort((a, b) => porcentaje(b) - porcentaje(a));
   const clientesFiltrados = q
     ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
     : resumenClientes;
