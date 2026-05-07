@@ -96,7 +96,7 @@ export default function Entregas() {
               <span className="font-serif font-semibold text-text tracking-wide">{lugar}</span>
               <span className="ml-auto font-sans font-bold text-sm" style={{ color: '#B8956A' }}>{aps.length}</span>
             </div>
-            <div className="divide-y" style={{ borderColor: '#E8DDD0' }}>
+            <div className="divide-y divide-[#E8DDD0]">
               {aps.map(ap => <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={marcarEntregado} />)}
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function Entregas() {
               <span className="font-serif font-semibold text-text-light tracking-wide text-sm">Sin lugar asignado</span>
               <span className="ml-auto font-sans font-bold text-sm text-text-light">{sinLugar.length}</span>
             </div>
-            <div className="divide-y" style={{ borderColor: '#E8DDD0' }}>
+            <div className="divide-y divide-[#E8DDD0]">
               {sinLugar.map(ap => <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={marcarEntregado} />)}
             </div>
           </div>
