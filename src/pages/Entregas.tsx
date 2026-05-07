@@ -7,9 +7,7 @@ export default function Entregas() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [entregando, setEntregando] = useState<string | null>(null);
-  const [filtroActivo, setFiltroActivo] = useState(true);
-  const [filtroPendiente, setFiltroPendiente] = useState(true);
-  const [filtroEntregado, setFiltroEntregado] = useState(false);
+  const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'entregado'>('pendiente');
 
   const cargar = async () => {
     setCargando(true);
@@ -30,13 +28,16 @@ export default function Entregas() {
     cargar();
   };
 
+  const activoCount = apartados.filter(a => a.estado === 'activo').length;
+  const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
+  const entregadoCount = apartados.filter(a => a.entregado).length;
+
   const filtrados = apartados.filter(ap => {
-    if (ap.estado === 'activo') return filtroActivo;
-    if (ap.entregado) return filtroEntregado;
-    return filtroPendiente;
+    if (filtro === 'activo') return ap.estado === 'activo';
+    if (filtro === 'entregado') return ap.entregado;
+    return ap.estado === 'liquidado' && !ap.entregado;
   });
 
-  // Agrupar por lugar_entrega
   const mapa = new Map<string, Apartado[]>();
   const sinLugar: Apartado[] = [];
   for (const ap of filtrados) {
@@ -45,10 +46,6 @@ export default function Entregas() {
     mapa.get(ap.lugar_entrega)!.push(ap);
   }
   const grupos = Array.from(mapa.entries());
-
-  const activoCount = apartados.filter(a => a.estado === 'activo').length;
-  const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
-  const entregadoCount = apartados.filter(a => a.entregado).length;
 
   if (cargando) return (
     <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -63,22 +60,21 @@ export default function Entregas() {
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
         {/* Filtros */}
-        <div className="bg-white rounded-2xl px-5 py-4 flex items-center gap-5 flex-wrap" style={{ border: '1px solid #E8DDD0' }}>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={filtroActivo} onChange={e => setFiltroActivo(e.target.checked)} className="w-4 h-4 rounded" />
-            <span className="text-sm text-text">Activos</span>
-            <span className="font-sans font-bold text-sm" style={{ color: '#C4A49A' }}>{activoCount}</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={filtroPendiente} onChange={e => setFiltroPendiente(e.target.checked)} className="w-4 h-4 rounded" />
-            <span className="text-sm text-text">Por entregar</span>
-            <span className="font-sans font-bold text-sm" style={{ color: '#B8956A' }}>{pendienteCount}</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={filtroEntregado} onChange={e => setFiltroEntregado(e.target.checked)} className="w-4 h-4 rounded" />
-            <span className="text-sm text-text">Entregados</span>
-            <span className="font-sans font-bold text-sm" style={{ color: '#7D9B7E' }}>{entregadoCount}</span>
-          </label>
+        <div className="grid grid-cols-3 gap-3 animate-slide-up">
+          {([
+            { key: 'activo', label: 'Activos', count: activoCount, color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
+            { key: 'pendiente', label: 'Por entregar', count: pendienteCount, color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
+            { key: 'entregado', label: 'Entregados', count: entregadoCount, color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
+          ] as const).map(f => (
+            <button key={f.key} onClick={() => setFiltro(f.key)}
+              className="rounded-2xl p-3 text-center transition-all"
+              style={filtro === f.key
+                ? { backgroundColor: f.bg, border: `2px solid ${f.border}` }
+                : { backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
+              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: f.color }}>{f.count}</div>
+              <div className="text-xs text-text-light tracking-wide mt-0.5">{f.label}</div>
+            </button>
+          ))}
         </div>
 
         {/* Lista vacía */}
@@ -86,9 +82,7 @@ export default function Entregas() {
           <div className="text-center py-16">
             <div className="text-4xl mb-3">📦</div>
             <p className="font-serif text-text-light">
-              {!filtroPendiente && !filtroEntregado
-                ? 'Selecciona al menos un filtro'
-                : 'Sin resultados'}
+              Sin resultados
             </p>
           </div>
         )}
