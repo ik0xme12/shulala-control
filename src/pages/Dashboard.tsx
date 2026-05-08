@@ -113,7 +113,7 @@ export default function Dashboard() {
               </Link>
               <Link to="/"
                 className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
-                style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
+                style={{ color: '#7D9B7E', border: '1px solid #7D9B7E' }}>
                 Apartados
               </Link>
             </div>
