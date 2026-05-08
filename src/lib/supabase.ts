@@ -43,6 +43,7 @@ export type Tanda = {
   monto_por_persona: number;
   frecuencia: 'semanal' | 'quincenal' | 'mensual';
   fecha_inicio: string;
+  archivada: boolean;
   created_at: string;
   participantes?: TandaParticipante[];
 };

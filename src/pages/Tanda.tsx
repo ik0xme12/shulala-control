@@ -20,6 +20,7 @@ function rondaActualDe(t: TandaCompleta): number {
 export default function TandaLista() {
   const [tandas, setTandas] = useState<TandaCompleta[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [verHistorial, setVerHistorial] = useState(false);
 
   useEffect(() => {
     setCargando(true);
@@ -37,6 +38,10 @@ export default function TandaLista() {
       });
   }, []);
 
+  const activas = tandas.filter(t => !t.archivada);
+  const archivadas = tandas.filter(t => t.archivada);
+  const visibles = verHistorial ? archivadas : activas;
+
   if (cargando) return (
     <div className="min-h-screen bg-cream flex items-center justify-center">
       <span className="font-script text-3xl text-text-light">Cargando...</span>
@@ -49,14 +54,36 @@ export default function TandaLista() {
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
-        {tandas.length === 0 ? (
+        {/* Toggle activas / historial */}
+        {(activas.length > 0 || archivadas.length > 0) && (
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setVerHistorial(false)}
+              className="rounded-2xl p-3 text-center text-sm font-medium transition-all"
+              style={!verHistorial
+                ? { backgroundColor: 'rgba(184,149,106,0.12)', border: '2px solid #B8956A', color: '#B8956A' }
+                : { backgroundColor: 'white', border: '1px solid #E8DDD0', color: '#7A6A62' }}>
+              Activas {activas.length > 0 && <span className="font-bold">({activas.length})</span>}
+            </button>
+            <button onClick={() => setVerHistorial(true)}
+              className="rounded-2xl p-3 text-center text-sm font-medium transition-all"
+              style={verHistorial
+                ? { backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid #7D9B7E', color: '#7D9B7E' }
+                : { backgroundColor: 'white', border: '1px solid #E8DDD0', color: '#7A6A62' }}>
+              Historial {archivadas.length > 0 && <span className="font-bold">({archivadas.length})</span>}
+            </button>
+          </div>
+        )}
+
+        {visibles.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">💰</div>
-            <p className="font-serif text-text-light mb-6">No hay ninguna tanda</p>
+            <p className="font-serif text-text-light mb-6">
+              {verHistorial ? 'No hay tandas en historial' : 'No hay tandas activas'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {tandas.map(t => {
+            {visibles.map(t => {
               const numP = t.participantes.length;
               const ronda = rondaActualDe(t);
               const bote = t.monto_por_persona * numP;
@@ -114,11 +141,13 @@ export default function TandaLista() {
           </div>
         )}
 
-        <Link to="/tanda/nueva"
-          className="block w-full py-3.5 rounded-xl font-semibold tracking-widest uppercase text-sm text-white text-center transition-all"
-          style={{ backgroundColor: '#7D9B7E' }}>
-          + Nueva Tanda
-        </Link>
+        {!verHistorial && (
+          <Link to="/tanda/nueva"
+            className="block w-full py-3.5 rounded-xl font-semibold tracking-widest uppercase text-sm text-white text-center transition-all"
+            style={{ backgroundColor: '#7D9B7E' }}>
+            + Nueva Tanda
+          </Link>
+        )}
       </main>
     </div>
   );

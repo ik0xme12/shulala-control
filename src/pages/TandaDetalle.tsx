@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
 import Header from '../components/Header';
 
@@ -26,12 +26,14 @@ function fechaDeRonda(fechaInicio: string, frecuencia: Tanda['frecuencia'], rond
 
 export default function TandaDetalle() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [tanda, setTanda] = useState<TandaCompleta | null>(null);
   const [cargando, setCargando] = useState(true);
   const [rondaActual, setRondaActual] = useState(1);
   const [vista, setVista] = useState<'ronda' | 'historial'>('ronda');
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<ConfirmacionAdelanto | null>(null);
+  const [archivando, setArchivando] = useState(false);
 
   const cargar = async () => {
     setCargando(true);
@@ -60,6 +62,12 @@ export default function TandaDetalle() {
   };
 
   useEffect(() => { cargar(); }, [id]);
+
+  const archivar = async () => {
+    setArchivando(true);
+    await supabase.from('tanda').update({ archivada: true }).eq('id', id);
+    navigate('/tanda');
+  };
 
   const ejecutarPago = async (participante: ParticipanteConPagos, ronda: number) => {
     const key = `${participante.id}-${ronda}`;
@@ -126,11 +134,32 @@ export default function TandaDetalle() {
   const pagadosCount = pagosRondaActual.filter(x => x.pago?.pagado).length;
   const pct = tanda.participantes.length > 0 ? Math.round((pagadosCount / tanda.participantes.length) * 100) : 0;
 
+  const tandaCompleta = tanda.participantes.every(p =>
+    tanda.participantes.every((_, idx) =>
+      p.pagos?.some(pg => pg.numero_ronda === idx + 1 && pg.pagado)
+    )
+  );
+
   return (
     <div className="min-h-screen bg-cream">
       <Header titulo={tanda.nombre} backTo="/tanda" />
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
+
+        {/* Banner tanda completa */}
+        {tandaCompleta && !tanda.archivada && (
+          <div className="rounded-2xl p-5 text-center animate-fade-in"
+            style={{ backgroundColor: 'rgba(125,155,126,0.10)', border: '1px solid #7D9B7E' }}>
+            <div className="text-3xl mb-2">🎉</div>
+            <p className="font-serif font-semibold text-text mb-1">¡Tanda completada!</p>
+            <p className="text-xs text-text-light mb-4">Todas las rondas han sido liquidadas.</p>
+            <button onClick={archivar} disabled={archivando}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
+              style={{ backgroundColor: '#7D9B7E' }}>
+              {archivando ? 'Archivando...' : 'Mover a historial'}
+            </button>
+          </div>
+        )}
 
         {/* Header card */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
