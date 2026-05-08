@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom';
 import { supabase, type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
 import Header from '../components/Header';
 
-type ParticipanteConPagos = TandaParticipante & { pagos: TandaPago[] };
-type TandaCompleta = Tanda & { participantes: ParticipanteConPagos[] };
+type ParticipanteConPagos = Omit<TandaParticipante, 'pagos'> & { pagos: TandaPago[] };
+type TandaCompleta = Omit<Tanda, 'participantes'> & { participantes: ParticipanteConPagos[] };
 
 type ConfirmacionAdelanto = {
   participante: ParticipanteConPagos;
@@ -118,10 +118,11 @@ export default function TandaDetalle() {
   const bote = tanda.monto_por_persona * tanda.participantes.length;
   const frecuenciaLabel = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual' }[tanda.frecuencia];
 
-  const pagosRondaActual = tanda.participantes.map(p => ({
-    participante: p,
-    pago: p.pagos?.find(pg => pg.numero_ronda === rondaActual),
-  }));
+  const pagosRondaActual: { participante: ParticipanteConPagos; pago: TandaPago | undefined }[] =
+    tanda.participantes.map(p => ({
+      participante: p,
+      pago: p.pagos?.find(pg => pg.numero_ronda === rondaActual),
+    }));
   const pagadosCount = pagosRondaActual.filter(x => x.pago?.pagado).length;
   const pct = tanda.participantes.length > 0 ? Math.round((pagadosCount / tanda.participantes.length) * 100) : 0;
 

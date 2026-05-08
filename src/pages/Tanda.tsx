@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase, type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
 import Header from '../components/Header';
 
-type ParticipanteConPagos = TandaParticipante & { pagos: TandaPago[] };
-type TandaCompleta = Tanda & { participantes: ParticipanteConPagos[] };
+type ParticipanteConPagos = Omit<TandaParticipante, 'pagos'> & { pagos: TandaPago[] };
+type TandaCompleta = Omit<Tanda, 'participantes'> & { participantes: ParticipanteConPagos[] };
 
 function rondaActualDe(t: TandaCompleta): number {
   const numP = t.participantes.length;
