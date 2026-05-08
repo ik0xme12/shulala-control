@@ -152,8 +152,8 @@ function FilaApartado({ ap, entregando, onToggle }: {
           disabled={entregando === ap.id}
           className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-xl transition-all disabled:opacity-50"
           style={ap.entregado
-            ? { backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid #7D9B7E' }
-            : { backgroundColor: '#B8956A', color: 'white' }}>
+            ? { backgroundColor: 'rgba(196,164,154,0.15)', color: '#9A7A70', border: '1px solid #C4A49A' }
+            : { backgroundColor: '#7D9B7E', color: 'white' }}>
           {entregando === ap.id ? '...' : ap.entregado ? '✓ Entregado' : 'Entregar →'}
         </button>
       ) : null}
