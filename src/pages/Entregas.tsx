@@ -126,51 +126,25 @@ function FilaApartado({ ap, entregando, onToggle }: {
   onToggle: (ap: Apartado) => void;
 }) {
   const puedeEntregar = ap.estado === 'liquidado';
+  const dias = (() => {
+    if (!ap.dias_limite) return null;
+    const diff = Math.floor((new Date().getTime() - new Date(ap.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    return ap.dias_limite - diff;
+  })();
+
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <Link to={`/apartado/${ap.id}`} className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-serif font-semibold text-text text-sm truncate">{ap.articulos?.nombre}</span>
-          {ap.estado === 'activo' && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full shrink-0"
-              style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#9A7A70' }}>
-              Por liquidar
-            </span>
-          )}
-          {ap.entregado && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full shrink-0 font-medium"
-              style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
-              ✓ Entregado
-            </span>
+        <div className="font-serif font-semibold text-text text-sm truncate">{ap.articulos?.nombre}</div>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <div className="text-xs text-text-light truncate">{ap.cliente_nombre}</div>
+          {ap.estado === 'activo' && dias !== null && (
+            <div className="text-xs font-medium shrink-0"
+              style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
+              {dias <= 0 ? `⚠ ${Math.abs(dias)}d` : `📅 ${dias}d`}
+            </div>
           )}
         </div>
-        <div className="text-xs text-text-light mt-0.5">{ap.cliente_nombre}</div>
-        {ap.cliente_tel && <div className="text-xs text-text-light">{ap.cliente_tel}</div>}
-        {ap.estado === 'activo' && ap.dias_limite && (() => {
-          const diff = Math.floor((new Date().getTime() - new Date(ap.created_at).getTime()) / (1000 * 60 * 60 * 24));
-          const dias = ap.dias_limite - diff;
-          return (
-            <div className="text-xs mt-0.5 font-medium"
-              style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
-              {dias <= 0 ? `⚠ Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}` : `📅 ${dias} día${dias !== 1 ? 's' : ''} restante${dias !== 1 ? 's' : ''}`}
-            </div>
-          );
-        })()}
-        {ap.estado === 'activo' && (() => {
-          const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-          const pendiente = (ap.articulos?.precio_total ?? 0) - abonado;
-          return (
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 rounded-full h-1" style={{ backgroundColor: '#E8DDD0' }}>
-                <div className="rounded-full h-1 transition-all"
-                  style={{ width: `${Math.min(100, Math.round((abonado / (ap.articulos?.precio_total ?? 1)) * 100))}%`, backgroundColor: '#B8956A' }} />
-              </div>
-              <span className="text-xs shrink-0 font-sans font-medium" style={{ color: '#C4A49A' }}>
-                ${pendiente.toLocaleString('es-MX')} rest.
-              </span>
-            </div>
-          );
-        })()}
       </Link>
       {puedeEntregar ? (
         <button
