@@ -150,30 +150,13 @@ function FilaApartado({ ap, entregando, onToggle }: {
         <button
           onClick={() => onToggle(ap)}
           disabled={entregando === ap.id}
-          className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50"
-          style={{ backgroundColor: ap.entregado ? '#7D9B7E' : '#C4A49A' }}
-          title={ap.entregado ? 'Revertir entrega' : 'Marcar como entregado'}>
-          {entregando === ap.id ? (
-            <span className="text-xs">·</span>
-          ) : ap.entregado ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-            </svg>
-          )}
+          className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-xl transition-all disabled:opacity-50"
+          style={ap.entregado
+            ? { backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid #7D9B7E' }
+            : { backgroundColor: '#B8956A', color: 'white' }}>
+          {entregando === ap.id ? '...' : ap.entregado ? '✓ Entregado' : 'Entregar →'}
         </button>
-      ) : (
-        <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: '#F5F0E8' }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C4A49A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
