@@ -34,6 +34,8 @@ export default function TandaDetalle() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<ConfirmacionAdelanto | null>(null);
   const [archivando, setArchivando] = useState(false);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   const cargar = async () => {
     setCargando(true);
@@ -66,6 +68,18 @@ export default function TandaDetalle() {
   const archivar = async () => {
     setArchivando(true);
     await supabase.from('tanda').update({ archivada: true }).eq('id', id);
+    navigate('/tanda');
+  };
+
+  const eliminar = async () => {
+    setEliminando(true);
+    await supabase.from('tanda_pagos')
+      .delete()
+      .in('tanda_participante_id',
+        (tanda?.participantes ?? []).map(p => p.id)
+      );
+    await supabase.from('tanda_participantes').delete().eq('tanda_id', id);
+    await supabase.from('tanda').delete().eq('id', id);
     navigate('/tanda');
   };
 
@@ -338,7 +352,45 @@ export default function TandaDetalle() {
           </div>
         )}
 
+        {/* Eliminar tanda */}
+        <button onClick={() => setConfirmandoEliminar(true)}
+          className="w-full py-3 rounded-xl text-sm font-medium transition-all"
+          style={{ backgroundColor: 'rgba(220,38,38,0.06)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)' }}>
+          Eliminar tanda
+        </button>
+
       </main>
+
+      {/* Modal confirmar eliminar */}
+      {confirmandoEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: 'rgba(44,36,34,0.4)' }}
+          onClick={() => setConfirmandoEliminar(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-slide-up"
+            style={{ border: '1px solid #E8DDD0' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <div className="text-3xl mb-2">⚠️</div>
+              <h3 className="font-serif font-semibold text-text text-base">Eliminar tanda</h3>
+              <p className="text-sm text-text-light mt-2">
+                Se eliminará <span className="font-medium text-text">{tanda.nombre}</span> con todos sus participantes y pagos. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmandoEliminar(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ backgroundColor: '#F5F0E8', color: '#7A6A62' }}>
+                Cancelar
+              </button>
+              <button onClick={eliminar} disabled={eliminando}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-60"
+                style={{ backgroundColor: '#DC2626' }}>
+                {eliminando ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal adelanto de pago */}
       {confirmacion && (
