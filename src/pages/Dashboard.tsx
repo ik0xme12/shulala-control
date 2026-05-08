@@ -77,7 +77,14 @@ export default function Dashboard() {
         (ap.articulos?.nombre ?? '').toLowerCase().includes(q) ||
         ap.cliente_nombre.toLowerCase().includes(q))
     : apartados
-  ).slice().sort((a, b) => porcentaje(b) - porcentaje(a));
+  ).slice().sort((a, b) => {
+    const da = diasRestantes(a);
+    const db = diasRestantes(b);
+    if (da === null && db === null) return 0;
+    if (da === null) return 1;
+    if (db === null) return -1;
+    return da - db;
+  });
   const clientesFiltrados = q
     ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
     : resumenClientes;
