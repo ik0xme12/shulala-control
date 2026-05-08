@@ -10,8 +10,7 @@ type ClienteSugerido = {
   numApartados: number;
 };
 
-const inputCls = "w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none transition-all"
-  + " focus:ring-2 focus:ring-offset-0"
+const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none transition-all"
   + " uppercase placeholder:normal-case";
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
 const inputFocusStyle = { borderColor: '#B8956A' };
@@ -117,14 +116,14 @@ export default function NuevoApartado() {
             <div className="flex gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                 placeholder="Nombre del artículo *" required autoComplete="off"
-                className={`${inputCls} flex-1`} style={inputStyle}
+                className={`${inputCls} w-full`} style={inputStyle}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
               <div className="relative w-32 shrink-0">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.precio_total} onChange={e => set('precio_total', e.target.value)}
                   placeholder="Precio *" min="0" step="0.01" required
-                  className={`${inputCls} pl-7 normal-case w-full`} style={inputStyle}
+                  className={`${inputCls} pl-7 normal-case w-full`} style={{ ...inputStyle, width: '100%' }}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
@@ -139,7 +138,7 @@ export default function NuevoApartado() {
                     onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (clientesFiltrados.length > 0) setMostrarSugerencias(true); }}
                     onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarSugerencias(false), 200); }}
                     placeholder="Cliente *" required autoComplete="off"
-                    className={inputCls} style={inputStyle} />
+                    className={`${inputCls} w-full`} style={inputStyle} />
                   {mostrarSugerencias && clientesFiltrados.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
                       style={{ border: '1px solid #E8DDD0' }}>
@@ -165,7 +164,7 @@ export default function NuevoApartado() {
                 </div>
                 <input type="tel" value={form.cliente_tel} onChange={e => set('cliente_tel', e.target.value)}
                   placeholder="Teléfono"
-                  className={`${inputCls} normal-case w-36 shrink-0`} style={inputStyle}
+                  className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '9rem' }}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
@@ -188,13 +187,13 @@ export default function NuevoApartado() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
                   placeholder="Abono inicial" min="0" step="0.01"
-                  className={`${inputCls} pl-7 normal-case`} style={inputStyle}
+                  className={`${inputCls} pl-7 normal-case w-full`} style={inputStyle}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
               <input type="number" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
                 placeholder="Días límite" min="1"
-                className={`${inputCls} normal-case w-32 shrink-0`} style={inputStyle}
+                className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '8rem' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>
