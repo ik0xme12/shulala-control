@@ -126,46 +126,37 @@ export default function NuevoApartado() {
       <Header titulo="Nuevo Apartado" backTo="/" />
 
       <main className="max-w-2xl mx-auto px-4 py-5">
-        <form onSubmit={guardar} className="space-y-4 animate-slide-up">
+        <form onSubmit={guardar} className="space-y-3 animate-slide-up">
 
-          {/* Artículo */}
-          <Seccion icono="🛍️" titulo="Artículo">
-            <div className="space-y-3">
-              <div>
-                <Label>Nombre del artículo *</Label>
-                <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                  placeholder="Ej: Vestido floral negro" required
-                  className={inputCls} style={inputStyle}
+          <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
+
+            {/* Artículo + Precio */}
+            <div className="flex gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
+                placeholder="Nombre del artículo *" required autoComplete="off"
+                className={`${inputCls} flex-1`} style={inputStyle}
+                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              <div className="relative w-32 shrink-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
+                <input type="number" value={form.precio_total} onChange={e => set('precio_total', e.target.value)}
+                  placeholder="Precio *" min="0" step="0.01" required
+                  className={`${inputCls} pl-7 normal-case w-full`} style={inputStyle}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              <div>
-                <Label>Precio total *</Label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
-                  <input type="number" value={form.precio_total} onChange={e => set('precio_total', e.target.value)}
-                    placeholder="0.00" min="0" step="0.01" required
-                    className={`${inputCls} pl-8 normal-case`} style={inputStyle}
-                    onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                    onBlur={e => Object.assign(e.target.style, inputStyle)} />
-                </div>
-              </div>
             </div>
-          </Seccion>
 
-          {/* Cliente */}
-          <Seccion icono="👤" titulo="Cliente">
-            <div className="space-y-3">
-              <div>
-                <Label>Nombre del cliente *</Label>
-                <div className="relative">
+            {/* Cliente + Teléfono */}
+            <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <div className="flex gap-3">
+                <div className="relative flex-1">
                   <input type="text" value={form.cliente_nombre}
                     onChange={e => { set('cliente_nombre', e.target.value); setClienteSeleccionado(null); setMostrarSugerencias(true); }}
                     onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (clientesFiltrados.length > 0) setMostrarSugerencias(true); }}
                     onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarSugerencias(false), 200); }}
-                    placeholder="Buscar o escribir nombre..." required autoComplete="off"
+                    placeholder="Cliente *" required autoComplete="off"
                     className={inputCls} style={inputStyle} />
-
                   {mostrarSugerencias && clientesFiltrados.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
                       style={{ border: '1px solid #E8DDD0' }}>
@@ -178,110 +169,94 @@ export default function NuevoApartado() {
                             <div className="font-medium text-text text-sm font-serif">{c.nombre}</div>
                             {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
-                              {c.numApartados} apartado{c.numApartados !== 1 ? 's' : ''} activo{c.numApartados !== 1 ? 's' : ''}
+                              {c.numApartados} activo{c.numApartados !== 1 ? 's' : ''}
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-xs text-text-light">Debe en total</div>
-                            <div className="font-serif font-semibold" style={{ color: '#C4A49A' }}>
-                              ${c.pendiente.toLocaleString('es-MX')}
-                            </div>
+                          <div className="text-right shrink-0 font-sans font-semibold" style={{ color: '#C4A49A' }}>
+                            ${c.pendiente.toLocaleString('es-MX')}
                           </div>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
-
-                {clienteSeleccionado && (
-                  <div className="mt-2 rounded-xl px-4 py-3 animate-fade-in"
-                    style={{ backgroundColor: 'rgba(125,155,126,0.1)', border: '1px solid rgba(125,155,126,0.3)' }}>
-                    <p className="text-xs font-semibold tracking-wide" style={{ color: '#5C7A5D' }}>CLIENTE EXISTENTE</p>
-                    <p className="text-xs text-text-light mt-0.5">
-                      {clienteSeleccionado.numApartados} apartado{clienteSeleccionado.numApartados !== 1 ? 's' : ''} · Pendiente total:{' '}
-                      <strong style={{ color: '#C4A49A' }}>${clienteSeleccionado.pendiente.toLocaleString('es-MX')} MXN</strong>
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div>
-                <Label>Teléfono</Label>
                 <input type="tel" value={form.cliente_tel} onChange={e => set('cliente_tel', e.target.value)}
-                  placeholder="55 1234 5678"
-                  className={`${inputCls} normal-case`} style={inputStyle}
+                  placeholder="Teléfono"
+                  className={`${inputCls} normal-case w-36 shrink-0`} style={inputStyle}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
+              {clienteSeleccionado && (
+                <div className="mt-2 rounded-xl px-3 py-2 animate-fade-in flex items-center justify-between"
+                  style={{ backgroundColor: 'rgba(125,155,126,0.08)', border: '1px solid rgba(125,155,126,0.25)' }}>
+                  <span className="text-xs" style={{ color: '#5C7A5D' }}>
+                    {clienteSeleccionado.numApartados} apartado{clienteSeleccionado.numApartados !== 1 ? 's' : ''} activo{clienteSeleccionado.numApartados !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-xs font-sans font-semibold" style={{ color: '#C4A49A' }}>
+                    ${clienteSeleccionado.pendiente.toLocaleString('es-MX')} pendiente
+                  </span>
+                </div>
+              )}
             </div>
-          </Seccion>
 
-          {/* Abono inicial */}
-          <Seccion icono="💰" titulo="Abono inicial">
-            <Label>Primer abono (opcional)</Label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
-              <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
-                placeholder="0.00" min="0" step="0.01"
-                className={`${inputCls} pl-8 normal-case`} style={inputStyle}
+            {/* Abono + Días */}
+            <div className="flex gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
+                <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
+                  placeholder="Abono inicial" min="0" step="0.01"
+                  className={`${inputCls} pl-7 normal-case`} style={inputStyle}
+                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              </div>
+              <input type="number" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                placeholder="Días límite" min="1"
+                className={`${inputCls} normal-case w-32 shrink-0`} style={inputStyle}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>
-            {form.precio_total && form.abono_inicial && (
-              <p className="text-sm mt-2 font-serif" style={{ color: '#C4A49A' }}>
-                Restante: ${(parseFloat(form.precio_total || '0') - parseFloat(form.abono_inicial || '0')).toLocaleString('es-MX')} MXN
-              </p>
-            )}
-          </Seccion>
 
-          {/* Acuerdo */}
-          <Seccion icono="🤝" titulo="Acuerdo">
-            <div className="space-y-3">
-              <div>
-                <Label>Días para liquidar</Label>
-                <input type="number" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
-                  placeholder="Ej: 30" min="1"
-                  className={`${inputCls} normal-case`} style={inputStyle}
-                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
-              </div>
-              <div>
-                <Label>Lugar de entrega</Label>
-                <div className="relative">
-                  <input type="text" value={form.lugar_entrega}
-                    onChange={e => { set('lugar_entrega', e.target.value); setMostrarLugares(true); }}
-                    onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (lugaresFiltrados.length > 0) setMostrarLugares(true); }}
-                    onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarLugares(false), 200); }}
-                    placeholder="Ej: Tienda, domicilio..." autoComplete="off"
-                    className={inputCls} style={inputStyle} />
-                  {mostrarLugares && lugaresFiltrados.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
-                      style={{ border: '1px solid #E8DDD0' }}>
-                      {lugaresFiltrados.map((lugar, i) => (
-                        <button key={i} type="button"
-                          onClick={() => { set('lugar_entrega', lugar); setMostrarLugares(false); }}
-                          className="w-full px-4 py-2.5 text-left text-sm text-text border-b last:border-0 flex items-center gap-2"
-                          style={{ borderColor: '#E8DDD0' }}
-                          onMouseDown={e => e.preventDefault()}>
-                          <span style={{ color: '#B8956A' }}>📍</span>
-                          <span className="font-serif">{lugar}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+            {/* Lugar de entrega */}
+            <div className="relative p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <input type="text" value={form.lugar_entrega}
+                onChange={e => { set('lugar_entrega', e.target.value); setMostrarLugares(true); }}
+                onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (lugaresFiltrados.length > 0) setMostrarLugares(true); }}
+                onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setMostrarLugares(false), 200); }}
+                placeholder="Lugar de entrega" autoComplete="off"
+                className={`${inputCls} w-full`} style={inputStyle} />
+              {mostrarLugares && lugaresFiltrados.length > 0 && (
+                <div className="absolute top-full left-4 right-4 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
+                  style={{ border: '1px solid #E8DDD0' }}>
+                  {lugaresFiltrados.map((lugar, i) => (
+                    <button key={i} type="button"
+                      onClick={() => { set('lugar_entrega', lugar); setMostrarLugares(false); }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-text border-b last:border-0 flex items-center gap-2"
+                      style={{ borderColor: '#E8DDD0' }}
+                      onMouseDown={e => e.preventDefault()}>
+                      <span style={{ color: '#B8956A' }}>📍</span>
+                      <span className="font-serif">{lugar}</span>
+                    </button>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
-          </Seccion>
 
-          {/* Notas */}
-          <Seccion icono="📝" titulo="Notas">
-            <textarea value={form.notas} onChange={e => set('notas', e.target.value)}
-              placeholder="Acuerdos especiales..." rows={3}
-              className="w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none resize-none uppercase"
-              style={inputStyle}
-              onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-              onBlur={e => Object.assign(e.target.style, inputStyle)} />
-          </Seccion>
+            {/* Notas */}
+            <div className="p-4">
+              <textarea value={form.notas} onChange={e => set('notas', e.target.value)}
+                placeholder="Notas (opcional)" rows={2}
+                className="w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none resize-none uppercase placeholder:normal-case"
+                style={inputStyle}
+                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              {form.precio_total && form.abono_inicial && (
+                <p className="text-xs mt-2 font-sans" style={{ color: '#C4A49A' }}>
+                  Restante: ${(parseFloat(form.precio_total || '0') - parseFloat(form.abono_inicial || '0')).toLocaleString('es-MX')}
+                </p>
+              )}
+            </div>
+
+          </div>
 
           {error && (
             <div className="rounded-xl px-4 py-3 text-sm" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>
