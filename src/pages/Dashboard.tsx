@@ -106,15 +106,10 @@ export default function Dashboard() {
                 style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
                 Tandas
               </Link>
-              <Link to="/entregas"
+              <Link to="/"
                 className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ color: '#B8956A', border: '1px solid #B8956A' }}>
-                Entregas
-              </Link>
-              <Link to="/nuevo"
-                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
-                style={{ backgroundColor: '#7D9B7E', color: 'white' }}>
-                + Nuevo
+                Apartados
               </Link>
             </div>
           </div>
@@ -122,6 +117,13 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+
+        {/* Nuevo apartado */}
+        <Link to="/nuevo"
+          className="block w-full py-3 rounded-xl font-semibold tracking-widest uppercase text-sm text-white text-center transition-all animate-slide-up"
+          style={{ backgroundColor: '#7D9B7E' }}>
+          + Nuevo Apartado
+        </Link>
 
         {/* Buscador */}
         {!cargando && apartados.length > 0 && (
