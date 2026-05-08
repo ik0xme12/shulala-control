@@ -93,36 +93,22 @@ export default function Dashboard() {
     <div className="min-h-screen bg-cream">
 
       {/* Header */}
-      <header className="bg-white border-b border-sand sticky top-0 z-10" style={{ borderBottomColor: '#D4B896' }}>
+      <header className="bg-white sticky top-0 z-10" style={{ borderBottom: '1px solid #E8DDD0' }}>
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src="/logo.jpg" alt="Shulalá" className="w-10 h-10 rounded-full object-cover border-2" style={{ borderColor: '#B8956A' }} />
-              <div>
-                <div className="leading-none">
-                  <span className="font-script text-2xl" style={{ color: '#2C2422' }}>Shulalá</span>
-                  <span className="font-serif text-sm text-text-light ml-1 tracking-widest uppercase">Control</span>
-                </div>
-                <p className="text-xs text-text-light tracking-wide">Panel de apartados</p>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <img src="/logo.jpg" alt="Shulalá" className="w-8 h-8 rounded-full object-cover" style={{ border: '1.5px solid #B8956A' }} />
+              <span className="font-script text-2xl" style={{ color: '#2C2422' }}>Shulalá</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link to="/entregas"
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-                style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}
-                title="Gestión de entregas">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="3" width="15" height="13" rx="1" />
-                  <path d="M16 8h4l3 5v3h-7V8z" />
-                  <circle cx="5.5" cy="18.5" r="2.5" />
-                  <circle cx="18.5" cy="18.5" r="2.5" />
-                </svg>
+                className="text-sm font-medium transition-all"
+                style={{ color: '#B8956A' }}>
+                Entregas
               </Link>
-              <Link
-                to="/nuevo"
-                className="text-sm font-medium px-4 py-2 rounded-xl border transition-all"
-                style={{ backgroundColor: '#7D9B7E', color: 'white', borderColor: '#5C7A5D' }}
-              >
+              <Link to="/nuevo"
+                className="text-sm font-medium px-4 py-1.5 rounded-xl transition-all"
+                style={{ backgroundColor: '#7D9B7E', color: 'white' }}>
                 + Nuevo
               </Link>
             </div>
