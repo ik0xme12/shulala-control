@@ -86,7 +86,6 @@ export default function TandaLista() {
             {visibles.map(t => {
               const numP = t.participantes.length;
               const ronda = rondaActualDe(t);
-              const bote = t.monto_por_persona * numP;
               const cobrador = t.participantes.find(p => p.numero_turno === ronda);
               const pagadosEnRonda = t.participantes.filter(p =>
                 p.pagos?.some(pg => pg.numero_ronda === ronda && pg.pagado)
@@ -104,10 +103,8 @@ export default function TandaLista() {
                       <p className="text-xs text-text-light mt-0.5">{frecuenciaLabel} · {numP} personas</p>
                     </div>
                     <div className="text-right">
-                      <div className="font-sans font-bold text-base" style={{ color: '#B8956A' }}>
-                        ${bote.toLocaleString('es-MX')}
-                      </div>
-                      <div className="text-xs text-text-light mt-0.5">bote</div>
+                      <div className="font-sans font-bold text-base" style={{ color: '#B8956A' }}>{numP} personas</div>
+                      <div className="text-xs text-text-light mt-0.5">{frecuenciaLabel.toLowerCase()}</div>
                     </div>
                   </div>
 

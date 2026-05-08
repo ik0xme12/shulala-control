@@ -137,7 +137,7 @@ export default function TandaDetalle() {
 
   const numRondas = tanda.participantes.length;
   const cobrador = tanda.participantes.find(p => p.numero_turno === rondaActual);
-  const bote = tanda.monto_por_persona * tanda.participantes.length;
+
   const frecuenciaLabel = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual' }[tanda.frecuencia];
 
   const pagosRondaActual: { participante: ParticipanteConPagos; pago: TandaPago | undefined }[] =
@@ -179,16 +179,12 @@ export default function TandaDetalle() {
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
           <div className="flex items-center gap-4">
             <div className="flex-1 text-center">
-              <div className="font-sans font-bold text-xl" style={{ color: '#B8956A' }}>${bote.toLocaleString('es-MX')}</div>
-              <div className="text-xs text-text-light mt-0.5">Bote</div>
-            </div>
-            <div className="flex-1 text-center">
               <div className="font-sans font-bold text-xl" style={{ color: '#7D9B7E' }}>{rondaActual}/{numRondas}</div>
               <div className="text-xs text-text-light mt-0.5">Ronda</div>
             </div>
             <div className="flex-1 text-center">
-              <div className="font-sans font-bold text-xl" style={{ color: '#C4A49A' }}>${tanda.monto_por_persona.toLocaleString('es-MX')}</div>
-              <div className="text-xs text-text-light mt-0.5">Por persona</div>
+              <div className="font-sans font-bold text-xl" style={{ color: '#C4A49A' }}>{tanda.participantes.length}</div>
+              <div className="text-xs text-text-light mt-0.5">Personas</div>
             </div>
           </div>
           <div className="text-center mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
