@@ -62,14 +62,14 @@ export default function TandaLista() {
               style={!verHistorial
                 ? { backgroundColor: 'rgba(184,149,106,0.12)', border: '2px solid #B8956A', color: '#B8956A' }
                 : { backgroundColor: 'white', border: '1px solid #E8DDD0', color: '#7A6A62' }}>
-              Activas {activas.length > 0 && <span className="font-bold">({activas.length})</span>}
+              Activas {activas.length > 0 && <span className="font-bold">{activas.length}</span>}
             </button>
             <button onClick={() => setVerHistorial(true)}
               className="rounded-2xl p-3 text-center text-sm font-medium transition-all"
               style={verHistorial
                 ? { backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid #7D9B7E', color: '#7D9B7E' }
                 : { backgroundColor: 'white', border: '1px solid #E8DDD0', color: '#7A6A62' }}>
-              Historial {archivadas.length > 0 && <span className="font-bold">({archivadas.length})</span>}
+              Historial {archivadas.length > 0 && <span className="font-bold">{archivadas.length}</span>}
             </button>
           </div>
         )}
