@@ -100,14 +100,19 @@ export default function Dashboard() {
               <img src="/logo.jpg" alt="Shulalá" className="w-8 h-8 rounded-full object-cover" style={{ border: '1.5px solid #B8956A' }} />
               <span className="font-script text-2xl" style={{ color: '#2C2422' }}>Shulalá</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Link to="/tanda"
+                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
+                style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
+                Tandas
+              </Link>
               <Link to="/entregas"
-                className="text-sm font-medium px-4 py-1.5 rounded-xl transition-all"
+                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ color: '#B8956A', border: '1px solid #B8956A' }}>
                 Entregas
               </Link>
               <Link to="/nuevo"
-                className="text-sm font-medium px-4 py-1.5 rounded-xl transition-all"
+                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ backgroundColor: '#7D9B7E', color: 'white' }}>
                 + Nuevo
               </Link>

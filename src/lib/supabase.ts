@@ -36,3 +36,32 @@ export type Abono = {
   nota: string;
   created_at: string;
 };
+
+export type Tanda = {
+  id: string;
+  nombre: string;
+  monto_por_persona: number;
+  frecuencia: 'semanal' | 'quincenal' | 'mensual';
+  fecha_inicio: string;
+  created_at: string;
+  participantes?: TandaParticipante[];
+};
+
+export type TandaParticipante = {
+  id: string;
+  tanda_id: string;
+  nombre: string;
+  telefono: string | null;
+  numero_turno: number;
+  created_at: string;
+  pagos?: TandaPago[];
+};
+
+export type TandaPago = {
+  id: string;
+  tanda_participante_id: string;
+  numero_ronda: number;
+  pagado: boolean;
+  fecha_pago: string | null;
+  created_at: string;
+};
