@@ -113,7 +113,7 @@ export default function NuevoApartado() {
           <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
 
             {/* Artículo + Precio */}
-            <div className="flex gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                 placeholder="Nombre del artículo *" required autoComplete="off"
                 className={`${inputCls} w-full`} style={inputStyle}
@@ -131,7 +131,7 @@ export default function NuevoApartado() {
 
             {/* Cliente + Teléfono */}
             <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <input type="text" value={form.cliente_nombre}
                     onChange={e => { set('cliente_nombre', e.target.value); setClienteSeleccionado(null); setMostrarSugerencias(true); }}
@@ -182,7 +182,7 @@ export default function NuevoApartado() {
             </div>
 
             {/* Abono + Días */}
-            <div className="flex gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
