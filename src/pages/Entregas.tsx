@@ -145,6 +145,23 @@ function FilaApartado({ ap, entregando, onToggle }: {
             </div>
           )}
         </div>
+        {ap.estado === 'activo' && (() => {
+          const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+          const total = ap.articulos?.precio_total ?? 0;
+          const pct = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
+          return (
+            <div className="mt-2">
+              <div className="rounded-full h-1" style={{ backgroundColor: '#E8DDD0' }}>
+                <div className="rounded-full h-1 transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: '#B8956A' }} />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-text-light">${abonado.toLocaleString('es-MX')} / ${total.toLocaleString('es-MX')}</span>
+                <span className="text-xs font-medium" style={{ color: '#B8956A' }}>{pct}%</span>
+              </div>
+            </div>
+          );
+        })()}
       </Link>
       {puedeEntregar ? (
         <button
