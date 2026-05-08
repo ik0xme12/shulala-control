@@ -106,9 +106,14 @@ export default function Dashboard() {
                 style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
                 Tandas
               </Link>
-              <Link to="/"
+              <Link to="/entregas"
                 className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ color: '#B8956A', border: '1px solid #B8956A' }}>
+                Entregas
+              </Link>
+              <Link to="/"
+                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
+                style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
                 Apartados
               </Link>
             </div>
