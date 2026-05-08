@@ -167,7 +167,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
         <a
           href={`https://wa.me/${ap.cliente_tel.replace(/\D/g, '')}?text=${encodeURIComponent(
             puedeEntregar
-              ? `Hola ${ap.cliente_nombre}, tu pedido de *${ap.articulos?.nombre}* ya está listo para recoger. ¡Esperamos verte pronto! 🛍️`
+              ? `Hola ${ap.cliente_nombre}, tu pedido de *${ap.articulos?.nombre}* ya está listo para recoger${ap.lugar_entrega ? ` en *${ap.lugar_entrega}*` : ''}. ¡Esperamos verte pronto! 🛍️`
               : `Hola ${ap.cliente_nombre}, te recordamos tu apartado de *${ap.articulos?.nombre}*. ¡Pasa a liquidarlo y recogerlo pronto! 🛍️`
           )}`}
           target="_blank" rel="noopener noreferrer"
