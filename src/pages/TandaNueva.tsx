@@ -138,12 +138,19 @@ export default function TandaNueva() {
 
             {/* Fecha inicio */}
             <div className="p-4">
-              <input type="date" value={form.fecha_inicio} onChange={e => set('fecha_inicio', e.target.value)}
-                required
-                className={`${inputCls} normal-case w-full cursor-pointer appearance-none`} style={{ ...inputStyle, colorScheme: 'light', WebkitAppearance: 'none' }}
-                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)}
-                onClick={e => (e.target as HTMLInputElement).showPicker?.()} />
+              <div className="relative">
+                <input type="date" value={form.fecha_inicio} onChange={e => set('fecha_inicio', e.target.value)}
+                  required
+                  className={`${inputCls} normal-case w-full cursor-pointer appearance-none`} style={{ ...inputStyle, colorScheme: 'light', WebkitAppearance: 'none', color: form.fecha_inicio ? undefined : 'transparent' }}
+                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                  onBlur={e => Object.assign(e.target.style, inputStyle)}
+                  onClick={e => (e.target as HTMLInputElement).showPicker?.()} />
+                {!form.fecha_inicio && (
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: '#9A8A84', fontFamily: 'Jost, system-ui, sans-serif' }}>
+                    Fecha de inicio *
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
