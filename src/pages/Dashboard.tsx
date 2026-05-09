@@ -111,11 +111,6 @@ export default function Dashboard() {
                 style={{ color: '#B8956A', border: '1px solid #B8956A' }}>
                 Entregas
               </Link>
-              <Link to="/"
-                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
-                style={{ color: '#7D9B7E', border: '1px solid #7D9B7E' }}>
-                Apartados
-              </Link>
             </div>
           </div>
         </div>
