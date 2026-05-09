@@ -111,7 +111,7 @@ export default function TandaLista() {
                   <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
                     <div>
                       <div className="text-xs text-text-light">
-                        {completa ? 'Tanda completada' : `Ronda ${ronda}/${numP} · le toca`}
+                        {completa ? 'Tanda completada' : `Ronda ${ronda}/${numP} · recibe`}
                       </div>
                       {!completa && cobrador && (
                         <div className="text-sm font-serif font-medium text-text mt-0.5">{cobrador.nombre}</div>
@@ -122,7 +122,7 @@ export default function TandaLista() {
                         <div className="font-sans font-bold text-sm" style={{ color: '#7D9B7E' }}>
                           {pagadosEnRonda}/{numP}
                         </div>
-                        <div className="text-xs text-text-light">pagaron</div>
+                        <div className="text-xs text-text-light">aportaron</div>
                       </div>
                     )}
                     {completa && (

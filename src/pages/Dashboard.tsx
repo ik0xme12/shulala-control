@@ -96,9 +96,9 @@ export default function Dashboard() {
       <header className="bg-white sticky top-0 z-10" style={{ borderBottom: '1px solid #E8DDD0' }}>
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <img src="/logo.jpg" alt="Shulalá" className="w-8 h-8 rounded-full object-cover" style={{ border: '1.5px solid #B8956A' }} />
-              <span className="font-script text-2xl" style={{ color: '#2C2422' }}>Shulalá</span>
+            <div className="text-center">
+              <div className="font-script text-3xl leading-tight" style={{ color: '#2C2422', letterSpacing: '0.18em' }}>Shulalá</div>
+              <div className="text-xs tracking-widest uppercase leading-tight" style={{ color: '#B8956A' }}>Boutique Control</div>
             </div>
             <div className="flex items-center gap-2">
               <Link to="/tanda"

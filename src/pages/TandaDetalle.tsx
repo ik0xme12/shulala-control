@@ -197,7 +197,7 @@ export default function TandaDetalle() {
           <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-xs text-text-light uppercase tracking-wide">Le toca cobrar</div>
+                <div className="text-xs text-text-light uppercase tracking-wide">Le toca recibir</div>
                 <div className="font-serif font-semibold text-text text-base mt-0.5">{cobrador.nombre}</div>
               </div>
               <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export default function TandaDetalle() {
                 )}
                 <div className="text-right">
                   <div className="font-sans font-bold text-lg" style={{ color: '#7D9B7E' }}>{pct}%</div>
-                  <div className="text-xs text-text-light">{pagadosCount}/{tanda.participantes.length} pagaron</div>
+                  <div className="text-xs text-text-light">{pagadosCount}/{tanda.participantes.length} aportaron</div>
                 </div>
               </div>
             </div>
@@ -269,15 +269,18 @@ export default function TandaDetalle() {
                         {esCobrador && (
                           <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
                             style={{ backgroundColor: 'rgba(184,149,106,0.15)', color: '#B8956A' }}>
-                            cobra
+                            recibe
                           </span>
                         )}
                       </div>
-                      {pago?.pagado && pago.fecha_pago && (
-                        <div className="text-xs text-text-light mt-0.5">
-                          {new Date(pago.fecha_pago.split('T')[0] + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-                        </div>
-                      )}
+                      <div className="text-xs text-text-light mt-0.5">
+                        ${p.monto.toLocaleString('es-MX')}
+                        {pago?.pagado && pago.fecha_pago && (
+                          <span className="ml-1.5">
+                            · {new Date(pago.fecha_pago.split('T')[0] + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {p.telefono && !pagado && (
                       <a href={`https://wa.me/${p.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(

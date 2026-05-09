@@ -40,7 +40,6 @@ export type Abono = {
 export type Tanda = {
   id: string;
   nombre: string;
-  monto_por_persona: number;
   frecuencia: 'semanal' | 'quincenal' | 'mensual';
   fecha_inicio: string;
   archivada: boolean;
@@ -54,6 +53,7 @@ export type TandaParticipante = {
   nombre: string;
   telefono: string | null;
   numero_turno: number;
+  monto: number;
   created_at: string;
   pagos?: TandaPago[];
 };

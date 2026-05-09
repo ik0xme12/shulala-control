@@ -13,7 +13,7 @@
   --color-sand: #E8DDD0;
   --color-text: #2C2422;
   --color-text-light: #7A6A62;
-  --font-script: 'Great Vibes', cursive;
+  --font-script: 'Ephesis', cursive;
   --font-serif: 'Cormorant Garamond', serif;
   --font-sans: 'Jost', system-ui, sans-serif;
 }
@@ -30,7 +30,7 @@
 }
 
 @layer utilities {
-  .font-script { font-family: 'Great Vibes', cursive; }
+  .font-script { font-family: 'Ephesis', cursive; }
   .font-serif  { font-family: 'Cormorant Garamond', serif; }
   .font-sans   { font-family: 'Jost', system-ui, sans-serif; }
 

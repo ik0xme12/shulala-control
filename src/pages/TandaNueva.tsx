@@ -7,19 +7,18 @@ const inputCls = 'rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none tr
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
 const inputFocusStyle = { borderColor: '#B8956A' };
 
-type Participante = { nombre: string; telefono: string };
+type Participante = { nombre: string; telefono: string; monto: string };
 type ParticipanteSugerido = { nombre: string; telefono: string };
 
 export default function TandaNueva() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     nombre: '',
-    monto_por_persona: '',
     frecuencia: 'semanal' as 'semanal' | 'quincenal' | 'mensual',
     fecha_inicio: '',
   });
   const [participantes, setParticipantes] = useState<Participante[]>([
-    { nombre: '', telefono: '' },
+    { nombre: '', telefono: '', monto: '' },
   ]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -45,12 +44,12 @@ export default function TandaNueva() {
   };
 
   const seleccionarSugerencia = (i: number, s: ParticipanteSugerido) => {
-    setParticipantes(ps => ps.map((p, idx) => idx === i ? { nombre: s.nombre, telefono: s.telefono } : p));
+    setParticipantes(ps => ps.map((p, idx) => idx === i ? { ...p, nombre: s.nombre, telefono: s.telefono } : p));
     setSugerenciasAbiertas(null);
   };
 
   const agregarParticipante = () => {
-    setParticipantes(ps => [...ps, { nombre: '', telefono: '' }]);
+    setParticipantes(ps => [...ps, { nombre: '', telefono: '', monto: '' }]);
   };
 
   const quitarParticipante = (i: number) => {
@@ -61,12 +60,16 @@ export default function TandaNueva() {
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
     const validos = participantes.filter(p => p.nombre.trim());
-    if (!form.nombre || !form.monto_por_persona || !form.fecha_inicio) {
+    if (!form.nombre || !form.fecha_inicio) {
       setError('Completa los campos obligatorios');
       return;
     }
     if (validos.length < 2) {
       setError('Agrega al menos 2 participantes');
+      return;
+    }
+    if (validos.some(p => !parseFloat(p.monto) || parseFloat(p.monto) <= 0)) {
+      setError('Ingresa el monto de cada participante');
       return;
     }
     setGuardando(true);
@@ -76,7 +79,6 @@ export default function TandaNueva() {
       .from('tanda')
       .insert({
         nombre: form.nombre.toUpperCase(),
-        monto_por_persona: parseFloat(form.monto_por_persona),
         frecuencia: form.frecuencia,
         fecha_inicio: form.fecha_inicio,
       })
@@ -91,6 +93,7 @@ export default function TandaNueva() {
         nombre: p.nombre.toUpperCase(),
         telefono: p.telefono || null,
         numero_turno: i + 1,
+        monto: parseFloat(p.monto) || 0,
       }))
     );
 
@@ -99,9 +102,7 @@ export default function TandaNueva() {
     navigate('/tanda');
   };
 
-  const monto = parseFloat(form.monto_por_persona || '0');
   const numParticipantes = participantes.filter(p => p.nombre.trim()).length;
-  const bote = monto * numParticipantes;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -122,19 +123,11 @@ export default function TandaNueva() {
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>
 
-            {/* Monto + Frecuencia */}
-            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
-                <input type="number" value={form.monto_por_persona} onChange={e => set('monto_por_persona', e.target.value)}
-                  placeholder="Monto por persona *" min="0" step="0.01" required
-                  className={`${inputCls} pl-7 normal-case w-full`} style={inputStyle}
-                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
-              </div>
+            {/* Frecuencia */}
+            <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <select value={form.frecuencia} onChange={e => set('frecuencia', e.target.value)}
-                className={`${inputCls} normal-case shrink-0`}
-                style={{ ...inputStyle, width: '9rem', backgroundColor: 'white' }}
+                className={`${inputCls} normal-case w-full`}
+                style={{ ...inputStyle, backgroundColor: 'white' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)}>
                 <option value="semanal">Semanal</option>
@@ -147,20 +140,18 @@ export default function TandaNueva() {
             <div className="p-4">
               <input type="date" value={form.fecha_inicio} onChange={e => set('fecha_inicio', e.target.value)}
                 required
-                className={`${inputCls} normal-case w-full`} style={{ ...inputStyle, colorScheme: 'light' }}
+                className={`${inputCls} normal-case w-full cursor-pointer`} style={{ ...inputStyle, colorScheme: 'light' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                onBlur={e => Object.assign(e.target.style, inputStyle)}
+                onClick={e => (e.target as HTMLInputElement).showPicker?.()} />
             </div>
           </div>
 
           {/* Resumen */}
-          {monto > 0 && numParticipantes >= 2 && (
-            <div className="rounded-xl px-4 py-3 flex items-center justify-between animate-fade-in"
+          {numParticipantes >= 2 && (
+            <div className="rounded-xl px-4 py-3 animate-fade-in"
               style={{ backgroundColor: 'rgba(184,149,106,0.08)', border: '1px solid rgba(184,149,106,0.25)' }}>
               <span className="text-xs text-text-light">{numParticipantes} personas · {form.frecuencia}</span>
-              <span className="text-sm font-semibold font-sans" style={{ color: '#B8956A' }}>
-                Bote: ${bote.toLocaleString('es-MX')}
-              </span>
             </div>
           )}
 
@@ -179,49 +170,62 @@ export default function TandaNueva() {
                 );
                 const mostrar = sugerenciasAbiertas === i && sugerencias.length > 0;
                 return (
-                  <div key={i} className="flex items-center gap-2 px-4 py-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold font-sans"
-                      style={{ backgroundColor: 'rgba(184,149,106,0.15)', color: '#B8956A' }}>
-                      {i + 1}
-                    </span>
-                    <div className="relative flex-1">
-                      <input type="text" value={p.nombre}
-                        onChange={e => { setParticipante(i, 'nombre', e.target.value); setSugerenciasAbiertas(i); }}
-                        onFocus={e => { Object.assign(e.target.style, inputFocusStyle); setSugerenciasAbiertas(i); }}
-                        onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setSugerenciasAbiertas(null), 200); }}
-                        placeholder={`Participante ${i + 1} *`} autoComplete="off"
-                        className={`${inputCls} w-full uppercase placeholder:normal-case`} style={inputStyle} />
-                      {mostrar && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
-                          style={{ border: '1px solid #E8DDD0' }}>
-                          {sugerencias.map((s, si) => (
-                            <button key={si} type="button"
-                              onMouseDown={e => e.preventDefault()}
-                              onClick={() => seleccionarSugerencia(i, s)}
-                              className="w-full px-4 py-2.5 text-left flex items-center justify-between gap-3 border-b last:border-0"
-                              style={{ borderColor: '#E8DDD0' }}>
-                              <div>
-                                <div className="font-medium text-text text-sm font-serif">{s.nombre}</div>
-                                {s.telefono && <div className="text-xs text-text-light">{s.telefono}</div>}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
+                  <div key={i} className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold font-sans"
+                        style={{ backgroundColor: 'rgba(184,149,106,0.15)', color: '#B8956A' }}>
+                        {i + 1}
+                      </span>
+                      <div className="relative flex-1">
+                        <input type="text" value={p.nombre}
+                          onChange={e => { setParticipante(i, 'nombre', e.target.value); setSugerenciasAbiertas(i); }}
+                          onFocus={e => { Object.assign(e.target.style, inputFocusStyle); setSugerenciasAbiertas(i); }}
+                          onBlur={e => { Object.assign(e.target.style, inputStyle); setTimeout(() => setSugerenciasAbiertas(null), 200); }}
+                          placeholder={`Participante ${i + 1} *`} autoComplete="off"
+                          className={`${inputCls} w-full uppercase placeholder:normal-case`} style={inputStyle} />
+                        {mostrar && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
+                            style={{ border: '1px solid #E8DDD0' }}>
+                            {sugerencias.map((s, si) => (
+                              <button key={si} type="button"
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => seleccionarSugerencia(i, s)}
+                                className="w-full px-4 py-2.5 text-left flex items-center justify-between gap-3 border-b last:border-0"
+                                style={{ borderColor: '#E8DDD0' }}>
+                                <div>
+                                  <div className="font-medium text-text text-sm font-serif">{s.nombre}</div>
+                                  {s.telefono && <div className="text-xs text-text-light">{s.telefono}</div>}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {participantes.length > 1 && (
+                        <button type="button" onClick={() => quitarParticipante(i)}
+                          className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all"
+                          style={{ backgroundColor: 'rgba(220,38,38,0.08)', color: '#DC2626' }}>
+                          ×
+                        </button>
                       )}
                     </div>
-                    <input type="tel" value={p.telefono}
-                      onChange={e => setParticipante(i, 'telefono', e.target.value)}
-                      placeholder="Tel"
-                      className={`${inputCls} normal-case`} style={{ ...inputStyle, width: '7rem' }}
-                      onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                      onBlur={e => Object.assign(e.target.style, inputStyle)} />
-                    {participantes.length > 1 && (
-                      <button type="button" onClick={() => quitarParticipante(i)}
-                        className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all"
-                        style={{ backgroundColor: 'rgba(220,38,38,0.08)', color: '#DC2626' }}>
-                        ×
-                      </button>
-                    )}
+                    <div className="flex gap-2 mt-2 pl-8">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                        <input type="number" value={p.monto}
+                          onChange={e => setParticipante(i, 'monto', e.target.value)}
+                          placeholder="Aportación *" min="0" step="0.01"
+                          className={`${inputCls} pl-7 normal-case w-full`} style={inputStyle}
+                          onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                          onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                      </div>
+                      <input type="tel" value={p.telefono}
+                        onChange={e => setParticipante(i, 'telefono', e.target.value)}
+                        placeholder="Tel"
+                        className={`${inputCls} normal-case`} style={{ ...inputStyle, width: '7rem' }}
+                        onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                        onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                    </div>
                   </div>
                 );
               })}

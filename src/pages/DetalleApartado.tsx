@@ -24,6 +24,9 @@ export default function DetalleApartado() {
   const [mostrarLugares, setMostrarLugares] = useState(false);
   const [editandoDias, setEditandoDias] = useState(false);
   const [nuevoDias, setNuevoDias] = useState('');
+  const [editandoCliente, setEditandoCliente] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [nuevoTel, setNuevoTel] = useState('');
 
   const cargar = async () => {
     const { data } = await supabase
@@ -130,6 +133,16 @@ export default function DetalleApartado() {
     cargar();
   };
 
+  const guardarCliente = async () => {
+    if (!nuevoNombre.trim()) return;
+    await supabase.from('apartados').update({
+      cliente_nombre: nuevoNombre.trim().toUpperCase(),
+      cliente_tel: nuevoTel.trim() || null,
+    }).eq('id', id);
+    setEditandoCliente(false);
+    cargar();
+  };
+
   if (cargando) return (
     <div className="min-h-screen bg-cream flex items-center justify-center">
       <span className="font-script text-3xl text-text-light">Cargando...</span>
@@ -149,16 +162,6 @@ export default function DetalleApartado() {
   const abonosOrdenados = [...(apartado.abonos ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-
-  // Acumulado cronológico por abono (para la mini barra de progreso)
-  const acumulados = (() => {
-    const map = new Map<string, number>();
-    let total = 0;
-    [...(apartado.abonos ?? [])].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ).forEach(a => { total += a.monto; map.set(a.id, total); });
-    return map;
-  })();
 
   const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
   const inputFocusStyle = { borderColor: '#B8956A' };
@@ -180,33 +183,65 @@ export default function DetalleApartado() {
 
         {/* Resumen artículo */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-          <div className="flex items-start justify-between mb-1">
-            <div className="min-w-0 flex-1">
-              <h2 className="font-serif font-semibold text-text text-lg leading-tight">{apartado.articulos?.nombre}</h2>
-              {apartado.articulos?.descripcion && (
-                <p className="text-sm text-text-light mt-0.5">{apartado.articulos.descripcion}</p>
-              )}
-            </div>
-            <span className="ml-3 text-xs px-2.5 py-1 rounded-full font-medium shrink-0"
-              style={liquidado
-                ? { backgroundColor: 'rgba(125,155,126,0.15)', color: '#5C7A5D' }
-                : { backgroundColor: 'rgba(196,164,154,0.15)', color: '#9A7A70' }}>
-              {liquidado ? '✓ Liquidado' : 'Activo'}
-            </span>
-          </div>
+          {apartado.articulos?.descripcion && (
+            <p className="text-xs text-text-light mb-3">{apartado.articulos.descripcion}</p>
+          )}
 
           {/* Datos cliente */}
           <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-serif shrink-0"
-                style={{ backgroundColor: '#C4A49A' }}>
-                {apartado.cliente_nombre.charAt(0)}
+            {editandoCliente ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={nuevoNombre}
+                  onChange={e => setNuevoNombre(e.target.value)}
+                  placeholder="Nombre del cliente"
+                  autoFocus
+                  className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none uppercase"
+                  style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }}
+                />
+                <input
+                  type="text"
+                  value={nuevoTel}
+                  onChange={e => setNuevoTel(e.target.value)}
+                  placeholder="Teléfono (opcional)"
+                  className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none"
+                  style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
+                />
+                <div className="flex gap-1.5">
+                  <button onClick={() => setEditandoCliente(false)}
+                    className="text-xs px-2.5 py-1 rounded-lg text-text-light"
+                    style={{ border: '1px solid #E8DDD0' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={guardarCliente}
+                    className="text-xs px-2.5 py-1 rounded-lg text-white font-medium"
+                    style={{ backgroundColor: '#7D9B7E' }}>
+                    Guardar
+                  </button>
+                </div>
               </div>
-              <div>
-                <div className="font-medium text-text text-sm">{apartado.cliente_nombre}</div>
-                {apartado.cliente_tel && <div className="text-xs text-text-light">{apartado.cliente_tel}</div>}
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-serif shrink-0"
+                    style={{ backgroundColor: '#C4A49A' }}>
+                    {apartado.cliente_nombre.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="font-medium text-text text-sm">{apartado.cliente_nombre}</div>
+                    {apartado.cliente_tel && <div className="text-xs text-text-light">{apartado.cliente_tel}</div>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setEditandoCliente(true); setNuevoNombre(apartado.cliente_nombre); setNuevoTel(apartado.cliente_tel ?? ''); }}
+                  className="text-base shrink-0 transition-colors"
+                  style={{ color: '#C4A49A' }}
+                  title="Editar cliente">
+                  ✎
+                </button>
               </div>
-            </div>
+            )}
             <div className="flex flex-wrap gap-2 mt-2 items-start">
                 {editandoDias ? (
                   <div className="flex items-center gap-1.5">
@@ -232,15 +267,16 @@ export default function DetalleApartado() {
                     </button>
                   </div>
                 ) : apartado.dias_limite ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}>
                       📅 {apartado.dias_limite} días para liquidar
                     </span>
                     <button
                       onClick={() => { setEditandoDias(true); setNuevoDias(apartado.dias_limite?.toString() ?? ''); }}
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white transition-colors"
-                      style={{ backgroundColor: '#B8956A' }}>
-                      ✎ Editar
+                      className="text-base transition-colors"
+                      style={{ color: '#B8956A' }}
+                      title="Editar días">
+                      ✎
                     </button>
                   </div>
                 ) : (
@@ -295,15 +331,16 @@ export default function DetalleApartado() {
                     </div>
                   </div>
                 ) : apartado.lugar_entrega ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
                       📍 {apartado.lugar_entrega}
                     </span>
                     <button
                       onClick={() => { setEditandoLugar(true); setNuevoLugar(apartado.lugar_entrega ?? ''); }}
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white transition-colors"
-                      style={{ backgroundColor: '#7D9B7E' }}>
-                      ✎ Editar
+                      className="text-base transition-colors"
+                      style={{ color: '#7D9B7E' }}
+                      title="Editar lugar">
+                      ✎
                     </button>
                   </div>
                 ) : (
@@ -333,19 +370,25 @@ export default function DetalleApartado() {
           </div>
 
           {/* Montos */}
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            {[
-              { label: 'Total', valor: precio, color: '#2C2422' },
-              { label: 'Abonado', valor: abonado, color: '#7D9B7E' },
-              { label: 'Pendiente', valor: pendiente, color: '#C4A49A' },
-            ].map(m => (
-              <div key={m.label} className="rounded-xl p-3 text-center" style={{ backgroundColor: '#F5F0E8' }}>
-                <div className="text-xs tracking-widest uppercase text-text-light mb-1">{m.label}</div>
-                <div className="font-sans font-bold tracking-tight" style={{ color: m.color }}>
-                  ${m.valor.toLocaleString('es-MX')}
+          <div className="mt-3 flex items-baseline justify-between">
+            {liquidado ? (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
+                ✓ Liquidado · ${precio.toLocaleString('es-MX')}
+              </span>
+            ) : (
+              <>
+                <div>
+                  <span className="font-sans font-bold text-xl" style={{ color: '#2C2422' }}>
+                    ${pendiente.toLocaleString('es-MX')}
+                  </span>
+                  <span className="text-xs text-text-light ml-1.5">pendiente</span>
                 </div>
-              </div>
-            ))}
+                <span className="text-xs text-text-light">
+                  abonado ${abonado.toLocaleString('es-MX')} de ${precio.toLocaleString('es-MX')}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -401,11 +444,8 @@ export default function DetalleApartado() {
             <p className="text-sm text-text-light text-center py-4 font-serif">Sin abonos registrados</p>
           ) : (
             <div className="space-y-2">
-              {abonosOrdenados.map((abono: Abono, i) => {
-                const acum = acumulados.get(abono.id) ?? 0;
-                const pctAcum = precio > 0 ? Math.min(100, Math.round((acum / precio) * 100)) : 0;
-                return (
-                <div key={abono.id} className="rounded-xl p-4 animate-fade-in" style={{ backgroundColor: '#F5F0E8' }}>
+              {abonosOrdenados.map((abono: Abono, i) => (
+                <div key={abono.id} className="rounded-xl p-3 animate-fade-in" style={{ backgroundColor: '#F5F0E8' }}>
                   {editandoId === abono.id ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -434,62 +474,42 @@ export default function DetalleApartado() {
                       </div>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
-                            style={{ backgroundColor: '#B8956A' }}>
-                            {abonosOrdenados.length - i}
-                          </div>
-                          <span className="text-xs" style={{ color: '#7A6A62' }}>
-                            {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
+                        style={{ backgroundColor: '#B8956A' }}>
+                        {abonosOrdenados.length - i}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-sans font-semibold text-sm text-text">
+                          ${abono.monto.toLocaleString('es-MX')}
+                        </span>
+                        {abono.nota && (
+                          <span className="text-xs text-text-light ml-2">{abono.nota}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs text-text-light">
+                          {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                        </span>
                         <button
                           onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
-                          className="text-xs px-3 py-1.5 rounded-lg font-medium text-white transition-colors"
-                          style={{ backgroundColor: '#7D9B7E' }}>
-                          ✎ Editar
+                          className="text-base transition-colors"
+                          style={{ color: '#7D9B7E' }}
+                          title="Editar abono">
+                          ✎
                         </button>
-                      </div>
-                      <div className="font-sans font-bold text-2xl tracking-tight" style={{ color: '#2C2422' }}>
-                        ${abono.monto.toLocaleString('es-MX')}
-                        <span className="text-sm font-normal ml-1" style={{ color: '#7A6A62' }}>MXN</span>
-                      </div>
-                      {abono.nota && (
-                        <div className="text-xs mt-0.5 tracking-wide" style={{ color: '#7A6A62' }}>{abono.nota}</div>
-                      )}
-                      <div className="mt-3">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-xs" style={{ color: '#7A6A62' }}>Acumulado</span>
-                          <span className="text-xs font-medium" style={{ color: pctAcum === 100 ? '#5C7A5D' : '#B8956A' }}>
-                            {pctAcum}%
-                          </span>
-                        </div>
-                        <div className="rounded-full h-1.5 bg-white">
-                          <div className="rounded-full h-1.5 transition-all"
-                            style={{ width: `${pctAcum}%`, backgroundColor: pctAcum === 100 ? '#7D9B7E' : '#B8956A' }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-end mt-2">
                         <button
                           onClick={() => setConfirmarEliminarAbono(abono.id)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white transition-colors"
-                          style={{ backgroundColor: '#C4A49A' }}
+                          className="text-base transition-colors"
+                          style={{ color: '#C4A49A' }}
                           title="Eliminar abono">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                          </svg>
+                          ✕
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
-                );
-              })}
+              ))}
             </div>
           )}
         </div>
