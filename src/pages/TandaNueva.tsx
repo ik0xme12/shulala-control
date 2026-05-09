@@ -140,7 +140,7 @@ export default function TandaNueva() {
             <div className="p-4">
               <input type="date" value={form.fecha_inicio} onChange={e => set('fecha_inicio', e.target.value)}
                 required
-                className={`${inputCls} normal-case w-full cursor-pointer`} style={{ ...inputStyle, colorScheme: 'light', boxSizing: 'border-box' }}
+                className={`${inputCls} normal-case w-full cursor-pointer appearance-none`} style={{ ...inputStyle, colorScheme: 'light', WebkitAppearance: 'none' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)}
                 onClick={e => (e.target as HTMLInputElement).showPicker?.()} />
