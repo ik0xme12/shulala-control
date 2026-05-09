@@ -40,6 +40,9 @@ export default function TandaDetalle() {
   const [formInfo, setFormInfo] = useState({ nombre: '', frecuencia: 'semanal' as Tanda['frecuencia'], fecha_inicio: '' });
   const [editandoParticipante, setEditandoParticipante] = useState<string | null>(null);
   const [formParticipante, setFormParticipante] = useState({ nombre: '', telefono: '', monto: '' });
+  const [agregandoParticipante, setAgregandoParticipante] = useState(false);
+  const [formNuevoP, setFormNuevoP] = useState({ nombre: '', telefono: '', monto: '' });
+  const [confirmandoEliminarP, setConfirmandoEliminarP] = useState<string | null>(null);
 
   const cargar = async () => {
     setCargando(true);
@@ -86,6 +89,29 @@ export default function TandaDetalle() {
       telefono: formParticipante.telefono || null,
       monto: parseFloat(formParticipante.monto) || 0,
     }).eq('id', editandoParticipante);
+    setEditandoParticipante(null);
+    cargar();
+  };
+
+  const agregarParticipante = async () => {
+    if (!formNuevoP.nombre.trim() || !parseFloat(formNuevoP.monto)) return;
+    const nuevoTurno = Math.max(...(tanda?.participantes ?? []).map(p => p.numero_turno), 0) + 1;
+    await supabase.from('tanda_participantes').insert({
+      tanda_id: id,
+      nombre: formNuevoP.nombre.toUpperCase(),
+      telefono: formNuevoP.telefono || null,
+      monto: parseFloat(formNuevoP.monto),
+      numero_turno: nuevoTurno,
+    });
+    setAgregandoParticipante(false);
+    setFormNuevoP({ nombre: '', telefono: '', monto: '' });
+    cargar();
+  };
+
+  const eliminarParticipante = async (participanteId: string) => {
+    await supabase.from('tanda_pagos').delete().eq('tanda_participante_id', participanteId);
+    await supabase.from('tanda_participantes').delete().eq('id', participanteId);
+    setConfirmandoEliminarP(null);
     setEditandoParticipante(null);
     cargar();
   };
@@ -360,6 +386,11 @@ export default function TandaDetalle() {
                             style={{ border: '1px solid #E8DDD0' }}>
                             Cancelar
                           </button>
+                          <button onClick={() => setConfirmandoEliminarP(p.id)}
+                            className="py-1.5 px-3 rounded-xl text-xs font-medium"
+                            style={{ backgroundColor: 'rgba(220,38,38,0.08)', color: '#DC2626' }}>
+                            Eliminar
+                          </button>
                           <button onClick={guardarParticipante}
                             className="flex-1 py-1.5 rounded-xl text-xs font-semibold text-white"
                             style={{ backgroundColor: '#7D9B7E' }}>
@@ -422,6 +453,52 @@ export default function TandaDetalle() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Agregar participante */}
+            <div className="px-4 py-3" style={{ borderTop: '1px solid #E8DDD0' }}>
+              {agregandoParticipante ? (
+                <div className="space-y-2">
+                  <input type="text" value={formNuevoP.nombre}
+                    onChange={e => setFormNuevoP(f => ({ ...f, nombre: e.target.value }))}
+                    placeholder="Nombre *" autoFocus
+                    className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none uppercase"
+                    style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                      <input type="number" value={formNuevoP.monto}
+                        onChange={e => setFormNuevoP(f => ({ ...f, monto: e.target.value }))}
+                        placeholder="Aportación *" min="0" step="0.01"
+                        className="w-full rounded-xl pl-7 pr-3 py-2 text-sm text-text focus:outline-none"
+                        style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                    </div>
+                    <input type="tel" value={formNuevoP.telefono}
+                      onChange={e => setFormNuevoP(f => ({ ...f, telefono: e.target.value }))}
+                      placeholder="Tel"
+                      className="rounded-xl px-3 py-2 text-sm text-text focus:outline-none"
+                      style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', width: '7rem' }} />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setAgregandoParticipante(false); setFormNuevoP({ nombre: '', telefono: '', monto: '' }); }}
+                      className="flex-1 py-1.5 rounded-xl text-xs text-text-light"
+                      style={{ border: '1px solid #E8DDD0' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={agregarParticipante}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-semibold text-white"
+                      style={{ backgroundColor: '#7D9B7E' }}>
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setAgregandoParticipante(true)}
+                  className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{ backgroundColor: 'rgba(184,149,106,0.08)', color: '#B8956A', border: '1px dashed #B8956A' }}>
+                  + Agregar participante
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -500,6 +577,39 @@ export default function TandaDetalle() {
                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-60"
                 style={{ backgroundColor: '#DC2626' }}>
                 {eliminando ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar participante */}
+      {confirmandoEliminarP && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ backgroundColor: 'rgba(44,36,34,0.4)' }}
+          onClick={() => setConfirmandoEliminarP(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-slide-up"
+            style={{ border: '1px solid #E8DDD0' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <div className="text-3xl mb-2">⚠️</div>
+              <h3 className="font-serif font-semibold text-text text-base">Eliminar participante</h3>
+              <p className="text-sm text-text-light mt-2">
+                Se eliminará <span className="font-medium text-text">
+                  {tanda?.participantes.find(p => p.id === confirmandoEliminarP)?.nombre}
+                </span> y todos sus pagos. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmandoEliminarP(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ backgroundColor: '#F5F0E8', color: '#7A6A62' }}>
+                Cancelar
+              </button>
+              <button onClick={() => eliminarParticipante(confirmandoEliminarP)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all"
+                style={{ backgroundColor: '#DC2626' }}>
+                Eliminar
               </button>
             </div>
           </div>

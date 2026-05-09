@@ -268,9 +268,18 @@ export default function DetalleApartado() {
                   </div>
                 ) : apartado.dias_limite ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A' }}>
-                      📅 {apartado.dias_limite} días para liquidar
-                    </span>
+                    {(() => {
+                      const hoy = new Date(); hoy.setHours(0,0,0,0);
+                      const inicio = new Date(apartado.created_at.split('T')[0] + 'T12:00:00');
+                      const transcurridos = Math.floor((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+                      const restantes = apartado.dias_limite - transcurridos;
+                      return (
+                        <span className="text-xs px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: restantes <= 0 ? 'rgba(220,38,38,0.10)' : 'rgba(184,149,106,0.12)', color: restantes <= 0 ? '#DC2626' : '#B8956A' }}>
+                          📅 {restantes <= 0 ? 'Vencido' : `${restantes} día${restantes === 1 ? '' : 's'} para liquidar`}
+                        </span>
+                      );
+                    })()}
                     <button
                       onClick={() => { setEditandoDias(true); setNuevoDias(apartado.dias_limite?.toString() ?? ''); }}
                       className="text-base transition-colors"
