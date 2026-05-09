@@ -36,6 +36,10 @@ export default function TandaDetalle() {
   const [archivando, setArchivando] = useState(false);
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [editandoInfo, setEditandoInfo] = useState(false);
+  const [formInfo, setFormInfo] = useState({ nombre: '', frecuencia: 'semanal' as Tanda['frecuencia'], fecha_inicio: '' });
+  const [editandoParticipante, setEditandoParticipante] = useState<string | null>(null);
+  const [formParticipante, setFormParticipante] = useState({ nombre: '', telefono: '', monto: '' });
 
   const cargar = async () => {
     setCargando(true);
@@ -64,6 +68,27 @@ export default function TandaDetalle() {
   };
 
   useEffect(() => { cargar(); }, [id]);
+
+  const guardarInfo = async () => {
+    await supabase.from('tanda').update({
+      nombre: formInfo.nombre.toUpperCase(),
+      frecuencia: formInfo.frecuencia,
+      fecha_inicio: formInfo.fecha_inicio,
+    }).eq('id', id);
+    setEditandoInfo(false);
+    cargar();
+  };
+
+  const guardarParticipante = async () => {
+    if (!editandoParticipante) return;
+    await supabase.from('tanda_participantes').update({
+      nombre: formParticipante.nombre.toUpperCase(),
+      telefono: formParticipante.telefono || null,
+      monto: parseFloat(formParticipante.monto) || 0,
+    }).eq('id', editandoParticipante);
+    setEditandoParticipante(null);
+    cargar();
+  };
 
   const archivar = async () => {
     setArchivando(true);
@@ -177,19 +202,62 @@ export default function TandaDetalle() {
 
         {/* Header card */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-          <div className="flex items-center gap-4">
-            <div className="flex-1 text-center">
-              <div className="font-sans font-bold text-xl" style={{ color: '#7D9B7E' }}>{rondaActual}/{numRondas}</div>
-              <div className="text-xs text-text-light mt-0.5">Ronda</div>
+          {editandoInfo ? (
+            <div className="space-y-2">
+              <input type="text" value={formInfo.nombre}
+                onChange={e => setFormInfo(f => ({ ...f, nombre: e.target.value }))}
+                placeholder="Nombre de la tanda" autoFocus
+                className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none uppercase"
+                style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
+              <select value={formInfo.frecuencia}
+                onChange={e => setFormInfo(f => ({ ...f, frecuencia: e.target.value as Tanda['frecuencia'] }))}
+                className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none bg-white"
+                style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}>
+                <option value="semanal">Semanal</option>
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual">Mensual</option>
+              </select>
+              <input type="date" value={formInfo.fecha_inicio}
+                onChange={e => setFormInfo(f => ({ ...f, fecha_inicio: e.target.value }))}
+                className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none"
+                style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', colorScheme: 'light' }} />
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setEditandoInfo(false)}
+                  className="flex-1 py-2 rounded-xl text-xs text-text-light"
+                  style={{ border: '1px solid #E8DDD0' }}>
+                  Cancelar
+                </button>
+                <button onClick={guardarInfo}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold text-white"
+                  style={{ backgroundColor: '#7D9B7E' }}>
+                  Guardar
+                </button>
+              </div>
             </div>
-            <div className="flex-1 text-center">
-              <div className="font-sans font-bold text-xl" style={{ color: '#C4A49A' }}>{tanda.participantes.length}</div>
-              <div className="text-xs text-text-light mt-0.5">Personas</div>
-            </div>
-          </div>
-          <div className="text-center mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
-            <span className="text-xs text-text-light">{frecuenciaLabel} · {tanda.participantes.length} personas</span>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 text-center">
+                  <div className="font-sans font-bold text-xl" style={{ color: '#7D9B7E' }}>{rondaActual}/{numRondas}</div>
+                  <div className="text-xs text-text-light mt-0.5">Ronda</div>
+                </div>
+                <div className="flex-1 text-center">
+                  <div className="font-sans font-bold text-xl" style={{ color: '#C4A49A' }}>{tanda.participantes.length}</div>
+                  <div className="text-xs text-text-light mt-0.5">Personas</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
+                <span className="text-xs text-text-light">{frecuenciaLabel} · {tanda.participantes.length} personas</span>
+                <button
+                  onClick={() => { setEditandoInfo(true); setFormInfo({ nombre: tanda.nombre, frecuencia: tanda.frecuencia, fecha_inicio: tanda.fecha_inicio }); }}
+                  className="text-base transition-colors"
+                  style={{ color: '#B8956A' }}
+                  title="Editar tanda">
+                  ✎
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Cobrador + progreso */}
@@ -261,8 +329,46 @@ export default function TandaDetalle() {
                 const pagado = pago?.pagado ?? false;
                 const key = `${p.id}-${rondaActual}`;
                 const esCobrador = p.numero_turno === rondaActual;
+                const editandoEste = editandoParticipante === p.id;
                 return (
-                  <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                  <div key={p.id} className="px-5 py-3">
+                    {editandoEste ? (
+                      <div className="space-y-2">
+                        <input type="text" value={formParticipante.nombre}
+                          onChange={e => setFormParticipante(f => ({ ...f, nombre: e.target.value }))}
+                          placeholder="Nombre" autoFocus
+                          className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none uppercase"
+                          style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                            <input type="number" value={formParticipante.monto}
+                              onChange={e => setFormParticipante(f => ({ ...f, monto: e.target.value }))}
+                              placeholder="Aportación" min="0" step="0.01"
+                              className="w-full rounded-xl pl-7 pr-3 py-2 text-sm text-text focus:outline-none"
+                              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }} />
+                          </div>
+                          <input type="tel" value={formParticipante.telefono}
+                            onChange={e => setFormParticipante(f => ({ ...f, telefono: e.target.value }))}
+                            placeholder="Tel"
+                            className="rounded-xl px-3 py-2 text-sm text-text focus:outline-none"
+                            style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', width: '7rem' }} />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditandoParticipante(null)}
+                            className="flex-1 py-1.5 rounded-xl text-xs text-text-light"
+                            style={{ border: '1px solid #E8DDD0' }}>
+                            Cancelar
+                          </button>
+                          <button onClick={guardarParticipante}
+                            className="flex-1 py-1.5 rounded-xl text-xs font-semibold text-white"
+                            style={{ backgroundColor: '#7D9B7E' }}>
+                            Guardar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                    <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-serif text-sm text-text truncate">{p.nombre}</span>
@@ -304,6 +410,15 @@ export default function TandaDetalle() {
                         : { backgroundColor: '#7D9B7E', color: 'white' }}>
                       {toggling === key ? '...' : pagado ? '✓ Pagó' : 'Marcar →'}
                     </button>
+                    <button
+                      onClick={() => { setEditandoParticipante(p.id); setFormParticipante({ nombre: p.nombre, telefono: p.telefono ?? '', monto: p.monto.toString() }); }}
+                      className="text-base shrink-0 transition-colors"
+                      style={{ color: '#C4A49A' }}
+                      title="Editar participante">
+                      ✎
+                    </button>
+                  </div>
+                  )}
                   </div>
                 );
               })}
