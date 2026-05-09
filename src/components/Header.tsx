@@ -31,17 +31,22 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
         </div>
         <div className="flex items-center gap-2">
           {accion}
-          {NAV.map(n => (
-            <Link key={n.to} to={n.to}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
-              style={{
-                color: n.color,
-                border: `1px solid ${n.color}`,
-                visibility: n.match(pathname) ? 'hidden' : 'visible',
-              }}>
-              {n.label}
-            </Link>
-          ))}
+          {NAV.map(n => {
+            const activo = n.match(pathname);
+            return activo ? (
+              <span key={n.to}
+                className="text-xs font-medium px-3 py-1.5 rounded-xl shrink-0"
+                style={{ color: '#C8BDB8', border: '1px solid #E8DDD0', pointerEvents: 'none' }}>
+                {n.label}
+              </span>
+            ) : (
+              <Link key={n.to} to={n.to}
+                className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+                style={{ color: n.color, border: `1px solid ${n.color}` }}>
+                {n.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </header>
