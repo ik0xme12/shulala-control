@@ -102,17 +102,17 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2">
               <Link to="/tanda"
-                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
+                className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ color: '#7A6A62', border: '1px solid #7A6A62' }}>
                 Tandas
               </Link>
               <Link to="/entregas"
-                className="text-sm font-medium px-3 py-1.5 rounded-xl transition-all"
+                className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all"
                 style={{ color: '#B8956A', border: '1px solid #B8956A' }}>
                 Entregas
               </Link>
               <span
-                className="text-sm font-medium px-3 py-1.5 rounded-xl"
+                className="text-xs font-medium px-3 py-1.5 rounded-xl"
                 style={{ color: '#C8BDB8', border: '1px solid #E8DDD0', pointerEvents: 'none' }}>
                 Apartados
               </span>
