@@ -115,7 +115,7 @@ export default function TandaNueva() {
           <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
 
             {/* Nombre */}
-            <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+            <div className="p-4">
               <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                 placeholder="Nombre de la tanda *" required autoComplete="off"
                 className={`${inputCls} w-full uppercase placeholder:normal-case`} style={inputStyle}
@@ -124,7 +124,7 @@ export default function TandaNueva() {
             </div>
 
             {/* Frecuencia */}
-            <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+            <div className="p-4">
               <select value={form.frecuencia} onChange={e => set('frecuencia', e.target.value)}
                 className={`${inputCls} normal-case w-full`}
                 style={{ ...inputStyle, backgroundColor: 'white' }}
