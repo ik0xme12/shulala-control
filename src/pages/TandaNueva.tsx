@@ -112,33 +112,26 @@ export default function TandaNueva() {
         <form onSubmit={guardar} className="space-y-3 animate-slide-up">
 
           {/* Info general */}
-          <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
+          <div className="space-y-2">
 
-            {/* Nombre */}
-            <div className="p-4">
-              <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                placeholder="Nombre de la tanda *" required autoComplete="off"
-                className={`${inputCls} w-full uppercase placeholder:normal-case`} style={inputStyle}
-                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)} />
-            </div>
+            <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
+              placeholder="Nombre de la tanda *" required autoComplete="off"
+              className={`${inputCls} w-full uppercase placeholder:normal-case`} style={inputStyle}
+              onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+              onBlur={e => Object.assign(e.target.style, inputStyle)} />
 
-            {/* Frecuencia */}
-            <div className="p-4">
-              <select value={form.frecuencia} onChange={e => set('frecuencia', e.target.value)}
-                className={`${inputCls} normal-case w-full`}
-                style={{ ...inputStyle, backgroundColor: 'white' }}
-                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)}>
-                <option value="semanal">Semanal</option>
-                <option value="quincenal">Quincenal</option>
-                <option value="mensual">Mensual</option>
-              </select>
-            </div>
+            <select value={form.frecuencia} onChange={e => set('frecuencia', e.target.value)}
+              className={`${inputCls} normal-case w-full`}
+              style={{ ...inputStyle, backgroundColor: 'white' }}
+              onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+              onBlur={e => Object.assign(e.target.style, inputStyle)}>
+              <option value="semanal">Semanal</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="mensual">Mensual</option>
+            </select>
 
             {/* Fecha inicio */}
-            <div className="p-4">
-              <div className="relative">
+            <div className="relative">
                 <input type="date" value={form.fecha_inicio} onChange={e => set('fecha_inicio', e.target.value)}
                   required
                   className={`${inputCls} normal-case w-full cursor-pointer appearance-none`} style={{ ...inputStyle, colorScheme: 'light', WebkitAppearance: 'none', color: form.fecha_inicio ? undefined : 'transparent' }}
@@ -151,7 +144,6 @@ export default function TandaNueva() {
                   </span>
                 )}
               </div>
-            </div>
           </div>
 
           {/* Resumen */}
