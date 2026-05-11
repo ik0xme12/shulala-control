@@ -64,8 +64,8 @@ export default function TandaNueva() {
       setError('Completa los campos obligatorios');
       return;
     }
-    if (validos.length < 2) {
-      setError('Agrega al menos 2 participantes');
+    if (validos.length < 1) {
+      setError('Agrega al menos 1 participante');
       return;
     }
     if (validos.some(p => !parseFloat(p.monto) || parseFloat(p.monto) <= 0)) {
@@ -87,22 +87,23 @@ export default function TandaNueva() {
 
     if (e1 || !tanda) { console.error('Error tanda:', e1); setError(`Error al crear la tanda: ${e1?.message ?? 'desconocido'}`); setGuardando(false); return; }
 
-    const { error: e2 } = await supabase.from('tanda_participantes').insert(
-      validos.map((p, i) => ({
+    const { error: e2 } = await supabase.from('tanda_participantes').insert([
+      { tanda_id: tanda.id, nombre: 'ORGANIZADOR', telefono: null, numero_turno: 1, monto: 0 },
+      ...validos.map((p, i) => ({
         tanda_id: tanda.id,
         nombre: p.nombre.toUpperCase(),
         telefono: p.telefono || null,
-        numero_turno: i + 1,
+        numero_turno: i + 2,
         monto: parseFloat(p.monto) || 0,
-      }))
-    );
+      })),
+    ]);
 
     if (e2) { console.error('Error participantes:', e2); setError(`Error al guardar participantes: ${e2?.message ?? 'desconocido'}`); setGuardando(false); return; }
 
     navigate('/tanda');
   };
 
-  const numParticipantes = participantes.filter(p => p.nombre.trim()).length;
+  const numParticipantes = 1 + participantes.filter(p => p.nombre.trim()).length;
 
   return (
     <div className="min-h-screen bg-cream">

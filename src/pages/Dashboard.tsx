@@ -50,8 +50,8 @@ export default function Dashboard() {
 
   const diasRestantes = (ap: Apartado) => {
     if (!ap.dias_limite) return null;
-    const creado = new Date(ap.created_at);
-    const hoy = new Date();
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const creado = new Date(ap.created_at.split('T')[0] + 'T12:00:00');
     const diff = Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
     return ap.dias_limite - diff;
   };
