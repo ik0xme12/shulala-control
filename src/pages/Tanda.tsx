@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
+import { type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
+import { getTandasFull } from '../lib/dataService';
 import Header from '../components/Header';
 
 type ParticipanteConPagos = Omit<TandaParticipante, 'pagos'> & { pagos: TandaPago[] };
@@ -24,18 +25,13 @@ export default function TandaLista() {
 
   useEffect(() => {
     setCargando(true);
-    supabase
-      .from('tanda')
-      .select('*, participantes:tanda_participantes(*, pagos:tanda_pagos(*))')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        const lista = (data ?? []) as TandaCompleta[];
-        lista.forEach(t => {
-          t.participantes = (t.participantes ?? []).sort((a, b) => a.numero_turno - b.numero_turno);
-        });
-        setTandas(lista);
-        setCargando(false);
-      });
+    getTandasFull().then(data => {
+      const lista = (data as TandaCompleta[]).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setTandas(lista);
+      setCargando(false);
+    });
   }, []);
 
   const activas = tandas.filter(t => !t.archivada);

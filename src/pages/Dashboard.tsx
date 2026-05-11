@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type Apartado } from '../lib/supabase';
+import { type Apartado } from '../lib/supabase';
+import { getApartadosFull } from '../lib/dataService';
 
 type VistaTab = 'apartados' | 'clientes';
 
@@ -22,12 +23,11 @@ export default function Dashboard() {
 
   const cargar = async () => {
     setCargando(true);
-    const { data } = await supabase
-      .from('apartados')
-      .select('*, articulos(*), abonos(*)')
-      .eq('estado', filtro)
-      .order('created_at', { ascending: false });
-    setApartados(data ?? []);
+    const data = await getApartadosFull();
+    const filtrados = data
+      .filter(ap => ap.estado === filtro)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    setApartados(filtrados);
     setCargando(false);
   };
 

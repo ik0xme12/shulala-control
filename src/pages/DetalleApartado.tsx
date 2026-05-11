@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase, type Apartado, type Abono } from '../lib/supabase';
+import { type Apartado, type Abono } from '../lib/supabase';
+import { getApartado, updateApartado, insertAbono, updateAbono, deleteAbono, deleteApartado } from '../lib/dataService';
 import Header from '../components/Header';
 
 export default function DetalleApartado() {
@@ -29,11 +30,7 @@ export default function DetalleApartado() {
   const [nuevoTel, setNuevoTel] = useState('');
 
   const cargar = async () => {
-    const { data } = await supabase
-      .from('apartados')
-      .select('*, articulos(*), abonos(*)')
-      .eq('id', id)
-      .single();
+    const data = await getApartado(id!);
     setApartado(data);
     setCargando(false);
   };
@@ -41,11 +38,12 @@ export default function DetalleApartado() {
   useEffect(() => { cargar(); }, [id]);
 
   useEffect(() => {
-    supabase.from('apartados').select('lugar_entrega').not('lugar_entrega', 'is', null)
-      .then(({ data }) => {
-        const unicos = [...new Set((data ?? []).map(d => d.lugar_entrega as string))];
-        setLugaresDisponibles(unicos.sort());
-      });
+    import('../lib/dataService').then(({ getApartadosFull }) =>
+      getApartadosFull().then(data => {
+        const unicos = [...new Set(data.map(ap => ap.lugar_entrega).filter(Boolean) as string[])].sort();
+        setLugaresDisponibles(unicos);
+      })
+    );
   }, []);
 
   const totalAbonado = (ap: Apartado) =>
@@ -58,10 +56,11 @@ export default function DetalleApartado() {
     const pendiente = (apartado?.articulos?.precio_total ?? 0) - totalAbonado(apartado!);
     if (monto > pendiente) { setError(`Máximo $${pendiente.toLocaleString('es-MX')}`); return; }
     setGuardando(true); setError('');
-    await supabase.from('abonos').insert({ apartado_id: id, monto, nota: notaAbono.toUpperCase() });
+    const now = new Date().toISOString();
+    await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto, nota: notaAbono.toUpperCase(), created_at: now });
     const nuevoTotal = totalAbonado(apartado!) + monto;
     if (nuevoTotal >= (apartado?.articulos?.precio_total ?? 0)) {
-      await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
+      await updateApartado(id!, { estado: 'liquidado' });
     }
     setMontoAbono(''); setNotaAbono(''); setGuardando(false);
     cargar();
@@ -70,9 +69,9 @@ export default function DetalleApartado() {
   const liquidar = async () => {
     const pend = (apartado!.articulos?.precio_total ?? 0) - totalAbonado(apartado!);
     if (pend > 0) {
-      await supabase.from('abonos').insert({ apartado_id: id, monto: pend, nota: 'LIQUIDACIÓN' });
+      await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto: pend, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
     }
-    await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
+    await updateApartado(id!, { estado: 'liquidado' });
     setConfirmarLiquidar(false);
     cargar();
   };
@@ -86,12 +85,12 @@ export default function DetalleApartado() {
     const precio = apartado!.articulos?.precio_total ?? 0;
     const maxPermitido = precio - otrosAbonos;
     if (monto > maxPermitido) { setError(`Máximo $${maxPermitido.toLocaleString('es-MX')}`); return; }
-    await supabase.from('abonos').update({ monto, nota: editNota.toUpperCase() || null }).eq('id', abono.id);
+    await updateAbono(abono.id, { monto, nota: editNota.toUpperCase() || undefined });
     const nuevoTotal = otrosAbonos + monto;
     if (nuevoTotal >= precio && apartado!.estado !== 'liquidado') {
-      await supabase.from('apartados').update({ estado: 'liquidado' }).eq('id', id);
+      await updateApartado(id!, { estado: 'liquidado' });
     } else if (nuevoTotal < precio && apartado!.estado === 'liquidado') {
-      await supabase.from('apartados').update({ estado: 'activo' }).eq('id', id);
+      await updateApartado(id!, { estado: 'activo' });
     }
     setEditandoId(null);
     setError('');
@@ -99,35 +98,30 @@ export default function DetalleApartado() {
   };
 
   const eliminarAbono = async (abonoId: string) => {
-    await supabase.from('abonos').delete().eq('id', abonoId);
+    await deleteAbono(abonoId);
     const nuevosAbonos = (apartado!.abonos ?? []).filter(a => a.id !== abonoId);
     const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
     if (nuevoTotal < (apartado!.articulos?.precio_total ?? 0) && apartado!.estado === 'liquidado') {
-      await supabase.from('apartados').update({ estado: 'activo' }).eq('id', id);
+      await updateApartado(id!, { estado: 'activo' });
     }
     setEditandoId(null);
     cargar();
   };
 
   const eliminar = async () => {
-    await supabase.from('abonos').delete().eq('apartado_id', id);
-    await supabase.from('apartados').delete().eq('id', id);
+    await deleteApartado(id!);
     navigate('/');
   };
 
   const guardarDias = async () => {
     const dias = parseInt(nuevoDias);
-    await supabase.from('apartados').update({
-      dias_limite: dias > 0 ? dias : null
-    }).eq('id', id);
+    await updateApartado(id!, { dias_limite: dias > 0 ? dias : null });
     setEditandoDias(false);
     cargar();
   };
 
   const guardarLugar = async () => {
-    await supabase.from('apartados').update({
-      lugar_entrega: nuevoLugar.trim().toUpperCase() || null
-    }).eq('id', id);
+    await updateApartado(id!, { lugar_entrega: nuevoLugar.trim().toUpperCase() || null });
     setEditandoLugar(false);
     setMostrarLugares(false);
     cargar();
@@ -135,10 +129,7 @@ export default function DetalleApartado() {
 
   const guardarCliente = async () => {
     if (!nuevoNombre.trim()) return;
-    await supabase.from('apartados').update({
-      cliente_nombre: nuevoNombre.trim().toUpperCase(),
-      cliente_tel: nuevoTel.trim() || null,
-    }).eq('id', id);
+    await updateApartado(id!, { cliente_nombre: nuevoNombre.trim().toUpperCase(), cliente_tel: nuevoTel.trim() || null });
     setEditandoCliente(false);
     cargar();
   };

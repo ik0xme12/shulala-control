@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase, type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
+import { type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
+import {
+  getTanda, updateTanda, deleteTanda,
+  updateTandaParticipante, insertTandaParticipante, deleteTandaParticipante,
+  upsertTandaPago, updateTandaPago, insertTandaPagos,
+} from '../lib/dataService';
 import Header from '../components/Header';
 
 type ParticipanteConPagos = Omit<TandaParticipante, 'pagos'> & { pagos: TandaPago[] };
@@ -60,42 +65,23 @@ export default function TandaDetalle() {
 
   const cargar = async () => {
     setCargando(true);
-    const { data } = await supabase
-      .from('tanda')
-      .select('*, participantes:tanda_participantes(*, pagos:tanda_pagos(*))')
-      .eq('id', id)
-      .single();
-
+    const data = await getTanda(id!);
     if (data) {
       const t = data as TandaCompleta;
-      t.participantes = (t.participantes ?? []).sort((a, b) => a.numero_turno - b.numero_turno);
-
-      // Auto-marcar cobrador: quien recibe en su propia ronda ya está "pagado"
+      // Auto-marcar cobrador
       const sinPago = t.participantes.filter(p =>
         !p.pagos?.some(pg => pg.numero_ronda === p.numero_turno)
       );
       if (sinPago.length > 0) {
-        await supabase.from('tanda_pagos').insert(
-          sinPago.map(p => ({
-            tanda_participante_id: p.id,
-            numero_ronda: p.numero_turno,
-            pagado: true,
-            fecha_pago: null,
-          }))
+        const nuevos = await insertTandaPagos(
+          sinPago.map(p => ({ tanda_participante_id: p.id, numero_ronda: p.numero_turno, pagado: true, fecha_pago: null }))
         );
-        const { data: data2 } = await supabase
-          .from('tanda')
-          .select('*, participantes:tanda_participantes(*, pagos:tanda_pagos(*))')
-          .eq('id', id)
-          .single();
-        if (data2) {
-          const t2 = data2 as TandaCompleta;
-          t2.participantes = (t2.participantes ?? []).sort((a, b) => a.numero_turno - b.numero_turno);
-          aplicarTanda(t2);
+        for (const p of sinPago) {
+          const pg = nuevos.find(n => n.tanda_participante_id === p.id);
+          if (pg) p.pagos = [...(p.pagos ?? []), pg as TandaPago];
         }
-      } else {
-        aplicarTanda(t);
       }
+      aplicarTanda(t);
     }
     setCargando(false);
   };
@@ -103,22 +89,22 @@ export default function TandaDetalle() {
   useEffect(() => { cargar(); }, [id]);
 
   const guardarInfo = async () => {
-    await supabase.from('tanda').update({
+    await updateTanda(id!, {
       nombre: formInfo.nombre.toUpperCase(),
       frecuencia: formInfo.frecuencia,
       fecha_inicio: formInfo.fecha_inicio,
-    }).eq('id', id);
+    });
     setEditandoInfo(false);
     cargar();
   };
 
   const guardarParticipante = async () => {
     if (!editandoParticipante) return;
-    await supabase.from('tanda_participantes').update({
+    await updateTandaParticipante(editandoParticipante, {
       nombre: formParticipante.nombre.toUpperCase(),
       telefono: formParticipante.telefono || null,
       monto: parseFloat(formParticipante.monto) || 0,
-    }).eq('id', editandoParticipante);
+    });
     setEditandoParticipante(null);
     cargar();
   };
@@ -126,21 +112,23 @@ export default function TandaDetalle() {
   const agregarParticipante = async () => {
     if (!formNuevoP.nombre.trim() || !parseFloat(formNuevoP.monto)) return;
     const nuevoTurno = Math.max(...(tanda?.participantes ?? []).map(p => p.numero_turno), 0) + 1;
-    await supabase.from('tanda_participantes').insert({
-      tanda_id: id,
+    const now = new Date().toISOString();
+    await insertTandaParticipante({
+      id: crypto.randomUUID(),
+      tanda_id: id!,
       nombre: formNuevoP.nombre.toUpperCase(),
       telefono: formNuevoP.telefono || null,
       monto: parseFloat(formNuevoP.monto),
       numero_turno: nuevoTurno,
-    });
+      created_at: now,
+    } as TandaParticipante);
     setAgregandoParticipante(false);
     setFormNuevoP({ nombre: '', telefono: '', monto: '' });
     cargar();
   };
 
   const eliminarParticipante = async (participanteId: string) => {
-    await supabase.from('tanda_pagos').delete().eq('tanda_participante_id', participanteId);
-    await supabase.from('tanda_participantes').delete().eq('id', participanteId);
+    await deleteTandaParticipante(participanteId);
     setConfirmandoEliminarP(null);
     setEditandoParticipante(null);
     cargar();
@@ -148,19 +136,13 @@ export default function TandaDetalle() {
 
   const archivar = async () => {
     setArchivando(true);
-    await supabase.from('tanda').update({ archivada: true }).eq('id', id);
+    await updateTanda(id!, { archivada: true });
     navigate('/tanda');
   };
 
   const eliminar = async () => {
     setEliminando(true);
-    await supabase.from('tanda_pagos')
-      .delete()
-      .in('tanda_participante_id',
-        (tanda?.participantes ?? []).map(p => p.id)
-      );
-    await supabase.from('tanda_participantes').delete().eq('tanda_id', id);
-    await supabase.from('tanda').delete().eq('id', id);
+    await deleteTanda(id!, (tanda?.participantes ?? []).map(p => p.id));
     navigate('/tanda');
   };
 
@@ -171,16 +153,18 @@ export default function TandaDetalle() {
     const pagoExistente = participante.pagos?.find(pg => pg.numero_ronda === ronda);
 
     if (pagoExistente) {
-      await supabase.from('tanda_pagos').update({
+      await updateTandaPago(pagoExistente.id, {
         pagado: !pagoExistente.pagado,
         fecha_pago: !pagoExistente.pagado ? new Date().toISOString().split('T')[0] : null,
-      }).eq('id', pagoExistente.id);
+      });
     } else {
-      await supabase.from('tanda_pagos').insert({
+      await upsertTandaPago({
+        id: crypto.randomUUID(),
         tanda_participante_id: participante.id,
         numero_ronda: ronda,
         pagado: true,
         fecha_pago: new Date().toISOString().split('T')[0],
+        created_at: new Date().toISOString(),
       });
     }
     setToggling(null);

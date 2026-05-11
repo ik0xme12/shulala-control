@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { pullAll, syncOnReconnect } from './lib/sync';
 import Dashboard from './pages/Dashboard';
 import NuevoApartado from './pages/NuevoApartado';
 import DetalleApartado from './pages/DetalleApartado';
@@ -8,6 +10,15 @@ import TandaDetalle from './pages/TandaDetalle';
 import TandaNueva from './pages/TandaNueva';
 
 export default function App() {
+  useEffect(() => {
+    // Sincronización inicial al abrir la app (solo si hay internet)
+    if (navigator.onLine) pullAll();
+
+    // Al recuperar conexión: enviar cola pendiente y refrescar datos
+    window.addEventListener('online', syncOnReconnect);
+    return () => window.removeEventListener('online', syncOnReconnect);
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

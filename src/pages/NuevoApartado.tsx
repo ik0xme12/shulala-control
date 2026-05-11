@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
+import { getApartadosFull, insertArticuloYApartado, insertAbono } from '../lib/dataService';
 
 type ClienteSugerido = {
   nombre: string;
@@ -32,27 +32,22 @@ export default function NuevoApartado() {
   const [mostrarLugares, setMostrarLugares] = useState(false);
 
   useEffect(() => {
-    supabase.from('apartados')
-      .select('cliente_nombre, cliente_tel, articulos(precio_total), abonos(monto)')
-      .eq('estado', 'activo')
-      .then(({ data }) => {
-        const mapa = new Map<string, ClienteSugerido>();
-        for (const ap of data ?? []) {
-          const key = ap.cliente_nombre;
-          if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
-          const abonado = ((ap.abonos ?? []) as { monto: number }[]).reduce((s, a) => s + a.monto, 0);
-          const precio = (ap.articulos as unknown as { precio_total: number } | null)?.precio_total ?? 0;
-          const c = mapa.get(key)!;
-          c.pendiente += precio - abonado;
-          c.numApartados++;
-        }
-        setTodosClientes(Array.from(mapa.values()));
-      });
-    supabase.from('apartados').select('lugar_entrega').not('lugar_entrega', 'is', null)
-      .then(({ data }) => {
-        const unicos = [...new Set((data ?? []).map(d => d.lugar_entrega).filter(Boolean) as string[])];
-        setTodosLugares(unicos);
-      });
+    getApartadosFull().then(data => {
+      const activos = data.filter(ap => ap.estado === 'activo');
+      const mapa = new Map<string, ClienteSugerido>();
+      for (const ap of activos) {
+        const key = ap.cliente_nombre;
+        if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
+        const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+        const precio = ap.articulos?.precio_total ?? 0;
+        const c = mapa.get(key)!;
+        c.pendiente += precio - abonado;
+        c.numApartados++;
+      }
+      setTodosClientes(Array.from(mapa.values()));
+      const lugares = [...new Set(data.map(ap => ap.lugar_entrega).filter(Boolean) as string[])];
+      setTodosLugares(lugares);
+    });
   }, []);
 
   const clientesFiltrados = todosClientes.filter(c =>
@@ -78,29 +73,22 @@ export default function NuevoApartado() {
     if (isNaN(precio) || precio <= 0) { setError('El precio debe ser mayor a 0'); return; }
     if (abonoInicial < 0 || abonoInicial > precio) { setError('El abono inicial no puede ser mayor al precio'); return; }
     setGuardando(true); setError('');
+    const now = new Date().toISOString();
+    const artId = crypto.randomUUID();
+    const apId = crypto.randomUUID();
 
-    const { data: art, error: e1 } = await supabase.from('articulos')
-      .insert({ nombre: form.nombre.toUpperCase(), descripcion: '', precio_total: precio })
-      .select().single();
-    if (e1 || !art) { setError('Error al guardar el artículo'); setGuardando(false); return; }
-
-    const { data: ap, error: e2 } = await supabase.from('apartados')
-      .insert({
-        articulo_id: art.id,
-        cliente_nombre: form.cliente_nombre.toUpperCase(),
-        cliente_tel: form.cliente_tel,
-        notas: form.notas.toUpperCase(),
-        dias_limite: form.dias_limite ? parseInt(form.dias_limite) : null,
-        lugar_entrega: form.lugar_entrega.toUpperCase() || null,
-        estado: 'activo',
-      })
-      .select().single();
-    if (e2 || !ap) { setError('Error al guardar el apartado'); setGuardando(false); return; }
-
-    if (abonoInicial > 0) {
-      await supabase.from('abonos').insert({ apartado_id: ap.id, monto: abonoInicial, nota: 'ABONO INICIAL' });
+    try {
+      await insertArticuloYApartado(
+        { id: artId, nombre: form.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
+        { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: form.dias_limite ? parseInt(form.dias_limite) : null, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
+      );
+      if (abonoInicial > 0) {
+        await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abonoInicial, nota: 'ABONO INICIAL', created_at: now });
+      }
+      navigate(`/apartado/${apId}`);
+    } catch {
+      setError('Error al guardar'); setGuardando(false);
     }
-    navigate(`/apartado/${ap.id}`);
   };
 
   return (

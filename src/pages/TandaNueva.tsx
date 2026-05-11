@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { insertTandaConParticipantes } from '../lib/dataService';
 import Header from '../components/Header';
 
 const inputCls = 'rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none transition-all';
@@ -74,33 +75,23 @@ export default function TandaNueva() {
     }
     setGuardando(true);
     setError('');
+    const now = new Date().toISOString();
+    const tandaId = crypto.randomUUID();
 
-    const { data: tanda, error: e1 } = await supabase
-      .from('tanda')
-      .insert({
-        nombre: form.nombre.toUpperCase(),
-        frecuencia: form.frecuencia,
-        fecha_inicio: form.fecha_inicio,
-      })
-      .select()
-      .single();
-
-    if (e1 || !tanda) { console.error('Error tanda:', e1); setError(`Error al crear la tanda: ${e1?.message ?? 'desconocido'}`); setGuardando(false); return; }
-
-    const { error: e2 } = await supabase.from('tanda_participantes').insert([
-      { tanda_id: tanda.id, nombre: 'ORGANIZADOR', telefono: null, numero_turno: 1, monto: 0 },
-      ...validos.map((p, i) => ({
-        tanda_id: tanda.id,
-        nombre: p.nombre.toUpperCase(),
-        telefono: p.telefono || null,
-        numero_turno: i + 2,
-        monto: parseFloat(p.monto) || 0,
-      })),
-    ]);
-
-    if (e2) { console.error('Error participantes:', e2); setError(`Error al guardar participantes: ${e2?.message ?? 'desconocido'}`); setGuardando(false); return; }
-
-    navigate('/tanda');
+    try {
+      await insertTandaConParticipantes(
+        { id: tandaId, nombre: form.nombre.toUpperCase(), frecuencia: form.frecuencia, fecha_inicio: form.fecha_inicio, archivada: false, created_at: now },
+        [
+          { id: crypto.randomUUID(), tanda_id: tandaId, nombre: 'ORGANIZADOR', telefono: null, numero_turno: 1, monto: 0, created_at: now },
+          ...validos.map((p, i) => ({
+            id: crypto.randomUUID(), tanda_id: tandaId,
+            nombre: p.nombre.toUpperCase(), telefono: p.telefono || null,
+            numero_turno: i + 2, monto: parseFloat(p.monto) || 0, created_at: now,
+          })),
+        ],
+      );
+      navigate('/tanda');
+    } catch (e) { console.error('Error:', e); setError('Error al crear la tanda'); setGuardando(false); }
   };
 
   const numParticipantes = 1 + participantes.filter(p => p.nombre.trim()).length;

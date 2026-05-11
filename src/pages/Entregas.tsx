@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, type Apartado } from '../lib/supabase';
+import { type Apartado } from '../lib/supabase';
+import { getApartadosFull, updateApartado } from '../lib/dataService';
 import Header from '../components/Header';
 
 export default function Entregas() {
@@ -11,11 +12,8 @@ export default function Entregas() {
 
   const cargar = async () => {
     setCargando(true);
-    const { data } = await supabase
-      .from('apartados')
-      .select('*, articulos(*), abonos(*)')
-      .order('created_at', { ascending: false });
-    setApartados(data ?? []);
+    const data = await getApartadosFull();
+    setApartados(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     setCargando(false);
   };
 
@@ -23,7 +21,7 @@ export default function Entregas() {
 
   const marcarEntregado = async (ap: Apartado) => {
     setEntregando(ap.id);
-    await supabase.from('apartados').update({ entregado: !ap.entregado }).eq('id', ap.id);
+    await updateApartado(ap.id, { entregado: !ap.entregado });
     setEntregando(null);
     cargar();
   };
