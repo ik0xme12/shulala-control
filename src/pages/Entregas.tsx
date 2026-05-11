@@ -165,7 +165,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
           );
         })()}
       </Link>
-      {ap.cliente_tel && !ap.entregado && (
+      {ap.cliente_tel && !ap.entregado && (puedeEntregar || (dias !== null && dias <= 5)) && (
         <a
           href={`https://wa.me/${ap.cliente_tel.replace(/\D/g, '')}?text=${encodeURIComponent(
             puedeEntregar
