@@ -616,28 +616,6 @@ export default function DetalleApartado() {
           </div>
         )}
 
-        {/* Código QR */}
-        {qrUrl && (
-          <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">◼</span>
-                <h3 className="font-serif font-semibold text-text tracking-wide">Código QR</h3>
-              </div>
-              <button onClick={imprimir}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.25)' }}>
-                Imprimir
-              </button>
-            </div>
-            <div className="flex justify-center">
-              <img src={qrUrl} alt="QR del apartado" className="rounded-xl" style={{ width: 180, height: 180 }} />
-            </div>
-            <p className="text-xs text-center mt-3 font-serif" style={{ color: '#B8956A' }}>
-              Se actualiza automáticamente con cualquier cambio
-            </p>
-          </div>
-        )}
 
         {/* Historial abonos */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
