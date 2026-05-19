@@ -31,7 +31,7 @@ const menuItems = [
   {
     to: '/apartados?historial=1',
     emoji: '📊',
-    label: 'Historial de Ventas',
+    label: 'Historial',
     desc: 'Apartados liquidados',
     color: '#7A6A62',
     bg: 'rgba(122,106,98,0.08)',
@@ -81,7 +81,7 @@ export default function Dashboard() {
                 minHeight: 160,
               }}>
               <span style={{ fontSize: 40, lineHeight: 1, marginBottom: 12 }}>{emoji}</span>
-              <span className="font-script text-2xl leading-tight w-full text-center break-words" style={{ color }}>
+              <span className="font-script font-bold text-2xl leading-tight w-full text-center break-words" style={{ color }}>
                 {label}
               </span>
               <span className="text-xs mt-2 leading-snug" style={{ color: '#7A6A62', opacity: 0.75 }}>
