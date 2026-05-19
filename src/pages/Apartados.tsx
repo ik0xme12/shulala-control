@@ -31,7 +31,7 @@ export default function Apartados() {
 
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [filtro, setFiltro] = useState<'activo' | 'liquidado'>(esHistorial ? 'liquidado' : 'activo');
+  const filtro: 'activo' | 'liquidado' = esHistorial ? 'liquidado' : 'activo';
   const [vista, setVista] = useState<VistaTab>('clientes');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [abonoClienteKey, setAbonoClienteKey] = useState<string | null>(null);
@@ -111,7 +111,7 @@ export default function Apartados() {
     for (const ap of apartados) {
       const key = ap.cliente_nombre;
       if (!mapa.has(key)) {
-        mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0, apartados: [] });
+        mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', total: 0, pendiente: 0, numApartados: 0, apartados: [] });
       }
       const c = mapa.get(key)!;
       c.pendiente += ap.articulos?.precio_total ?? 0;
