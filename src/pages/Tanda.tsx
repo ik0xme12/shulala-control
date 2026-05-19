@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { type Tanda, type TandaParticipante, type TandaPago } from '../lib/supabase';
 import { getTandasFull } from '../lib/dataService';
 import Header from '../components/Header';
+import { useSyncReady } from '../lib/SyncContext';
 
 type ParticipanteConPagos = Omit<TandaParticipante, 'pagos'> & { pagos: TandaPago[] };
 type TandaCompleta = Omit<Tanda, 'participantes'> & { participantes: ParticipanteConPagos[] };
@@ -22,6 +23,7 @@ export default function TandaLista() {
   const [tandas, setTandas] = useState<TandaCompleta[]>([]);
   const [cargando, setCargando] = useState(true);
   const [verHistorial, setVerHistorial] = useState(false);
+  const syncReady = useSyncReady();
 
   useEffect(() => {
     setCargando(true);
@@ -32,7 +34,7 @@ export default function TandaLista() {
       setTandas(lista);
       setCargando(false);
     });
-  }, []);
+  }, [syncReady]);
 
   const activas = tandas.filter(t => !t.archivada);
   const archivadas = tandas.filter(t => t.archivada);
@@ -46,7 +48,7 @@ export default function TandaLista() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <Header titulo="Tandas" backTo="/" />
+      <Header titulo="Tandas" />
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 

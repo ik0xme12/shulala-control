@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { useParams, useNavigate } from 'react-router-dom';
 import { type Apartado, type Abono } from '../lib/supabase';
-import { getApartado, updateApartado, insertAbono, updateAbono, deleteAbono, deleteApartado } from '../lib/dataService';
+import { getApartado, getApartadosFull, updateApartado, updateArticulo, insertAbono, updateAbono, deleteAbono, deleteApartado } from '../lib/dataService';
 import Header from '../components/Header';
 
 export default function DetalleApartado() {
@@ -28,6 +29,11 @@ export default function DetalleApartado() {
   const [editandoCliente, setEditandoCliente] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState('');
   const [nuevoTel, setNuevoTel] = useState('');
+  const [editandoArticulo, setEditandoArticulo] = useState(false);
+  const [nuevoNombreArticulo, setNuevoNombreArticulo] = useState('');
+  const [editandoPrecio, setEditandoPrecio] = useState(false);
+  const [nuevoPrecio, setNuevoPrecio] = useState('');
+  const [qrUrl, setQrUrl] = useState<string>('');
 
   const cargar = async () => {
     const data = await getApartado(id!);
@@ -45,6 +51,26 @@ export default function DetalleApartado() {
       })
     );
   }, []);
+
+  useEffect(() => {
+    if (!apartado) return;
+    const precio = apartado.articulos?.precio_total ?? 0;
+    const ab = (apartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+    const pend = precio - ab;
+    const lineas = [
+      'SHULALÁ BOUTIQUE',
+      `Cliente: ${apartado.cliente_nombre}`,
+      apartado.cliente_tel ? `Tel: ${apartado.cliente_tel}` : null,
+      `Artículo: ${apartado.articulos?.nombre ?? ''}`,
+      `Total: $${precio.toLocaleString('es-MX')}`,
+      `Abonado: $${ab.toLocaleString('es-MX')}`,
+      `Restante: $${pend.toLocaleString('es-MX')}`,
+      apartado.lugar_entrega ? `Entrega: ${apartado.lugar_entrega}` : null,
+      apartado.notas ? `Notas: ${apartado.notas}` : null,
+    ].filter(Boolean).join('\n');
+    QRCode.toDataURL(lineas, { margin: 1, width: 240, color: { dark: '#2C2422', light: '#FFFFFF' } })
+      .then(url => setQrUrl(url));
+  }, [apartado]);
 
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
@@ -113,9 +139,17 @@ export default function DetalleApartado() {
     navigate('/');
   };
 
+  const diasTranscurridos = () => {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const creado = new Date(apartado!.created_at.split('T')[0] + 'T00:00:00');
+    return Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   const guardarDias = async () => {
-    const dias = parseInt(nuevoDias);
-    await updateApartado(id!, { dias_limite: dias > 0 ? dias : null });
+    const diasRestantes = parseInt(nuevoDias);
+    if (isNaN(diasRestantes) || diasRestantes < 0) return;
+    const nuevoLimite = diasRestantes === 0 ? null : diasTranscurridos() + diasRestantes;
+    await updateApartado(id!, { dias_limite: nuevoLimite });
     setEditandoDias(false);
     cargar();
   };
@@ -127,11 +161,82 @@ export default function DetalleApartado() {
     cargar();
   };
 
+  const guardarArticulo = async () => {
+    if (!nuevoNombreArticulo.trim() || !apartado?.articulo_id) return;
+    await updateArticulo(apartado.articulo_id, { nombre: nuevoNombreArticulo.trim().toUpperCase() });
+    setEditandoArticulo(false);
+    cargar();
+  };
+
+  const guardarPrecio = async () => {
+    const precio = parseFloat(nuevoPrecio);
+    if (isNaN(precio) || precio <= 0 || !apartado?.articulo_id) return;
+    await updateArticulo(apartado.articulo_id, { precio_total: precio });
+    setEditandoPrecio(false);
+    cargar();
+  };
+
   const guardarCliente = async () => {
     if (!nuevoNombre.trim()) return;
-    await updateApartado(id!, { cliente_nombre: nuevoNombre.trim().toUpperCase(), cliente_tel: nuevoTel.trim() || null });
+    const nombreViejo = apartado!.cliente_nombre;
+    const nombreNuevo = nuevoNombre.trim().toUpperCase();
+    const telNuevo = nuevoTel.trim() || null;
+    const todos = await getApartadosFull();
+    const mismoCliente = todos.filter(ap => ap.cliente_nombre === nombreViejo);
+    await Promise.all(mismoCliente.map(ap =>
+      updateApartado(ap.id, { cliente_nombre: nombreNuevo, cliente_tel: telNuevo })
+    ));
     setEditandoCliente(false);
     cargar();
+  };
+
+  const imprimir = () => {
+    if (!qrUrl || !apartado) return;
+    const precio = apartado.articulos?.precio_total ?? 0;
+    const ab = (apartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+    const pend = precio - ab;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Georgia,serif;background:#fff;color:#2C2422;padding:24px;max-width:320px;margin:0 auto}
+  .titulo{font-style:italic;font-size:26px;letter-spacing:.1em;text-align:center}
+  .sub{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:#B8956A;text-align:center;margin-bottom:16px}
+  hr{border:none;border-top:1px solid #E8DDD0;margin:12px 0}
+  .qr{text-align:center;margin:12px 0}
+  .qr img{width:180px;height:180px}
+  .fila{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dotted #E8DDD0;font-size:12px}
+  .lbl{color:#7A6A62}
+  .val{font-weight:600;text-align:right;max-width:60%}
+  .pend-label{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:#7A6A62;text-align:center;margin-top:14px}
+  .pend{font-size:28px;font-weight:700;color:#B8956A;text-align:center;margin-top:2px}
+  .fecha{font-size:9px;color:#7A6A62;text-align:center;margin-top:14px}
+</style>
+</head><body>
+  <div class="titulo">Shulalá</div>
+  <div class="sub">Boutique Control</div>
+  <div class="qr"><img src="${qrUrl}" /></div>
+  <hr>
+  <div class="fila"><span class="lbl">Cliente</span><span class="val">${apartado.cliente_nombre}</span></div>
+  ${apartado.cliente_tel ? `<div class="fila"><span class="lbl">Teléfono</span><span class="val">${apartado.cliente_tel}</span></div>` : ''}
+  <div class="fila"><span class="lbl">Artículo</span><span class="val">${apartado.articulos?.nombre ?? ''}</span></div>
+  ${apartado.lugar_entrega ? `<div class="fila"><span class="lbl">Lugar de entrega</span><span class="val">${apartado.lugar_entrega}</span></div>` : ''}
+  ${apartado.notas ? `<div class="fila"><span class="lbl">Notas</span><span class="val">${apartado.notas}</span></div>` : ''}
+  <hr>
+  <div class="fila"><span class="lbl">Total</span><span class="val">$${precio.toLocaleString('es-MX')}</span></div>
+  <div class="fila"><span class="lbl">Abonado</span><span class="val">$${ab.toLocaleString('es-MX')}</span></div>
+  <div class="pend-label">PENDIENTE</div>
+  <div class="pend">$${pend.toLocaleString('es-MX')}</div>
+  <div class="fecha">${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+</body></html>`;
+    const iframe = document.createElement('iframe');
+    Object.assign(iframe.style, { position: 'fixed', width: '0', height: '0', border: '0', top: '0', left: '0' });
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+    doc.open(); doc.write(html); doc.close();
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+    setTimeout(() => document.body.removeChild(iframe), 1000);
   };
 
   if (cargando) return (
@@ -160,8 +265,8 @@ export default function DetalleApartado() {
   return (
     <div className="min-h-screen bg-cream">
       <Header
-        titulo={apartado.articulos?.nombre ?? 'Apartado'}
-        backTo="/"
+        titulo=""
+        backTo="/apartados"
         accion={
           <button onClick={() => setConfirmarEliminar(true)}
             className="text-xs px-3 py-1.5 rounded-lg" style={{ color: '#DC2626', border: '1px solid #FECACA' }}>
@@ -174,6 +279,47 @@ export default function DetalleApartado() {
 
         {/* Resumen artículo */}
         <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
+          {/* Nombre del artículo */}
+          {editandoArticulo ? (
+            <div className="space-y-2 mb-4">
+              <input
+                type="text"
+                value={nuevoNombreArticulo}
+                onChange={e => setNuevoNombreArticulo(e.target.value)}
+                placeholder="Nombre del artículo"
+                autoFocus
+                className="w-full rounded-xl px-3 py-2 text-sm text-text focus:outline-none uppercase font-semibold"
+                style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }}
+                onKeyDown={e => { if (e.key === 'Enter') guardarArticulo(); if (e.key === 'Escape') setEditandoArticulo(false); }}
+              />
+              <div className="flex gap-1.5">
+                <button onClick={() => setEditandoArticulo(false)}
+                  className="text-xs px-2.5 py-1 rounded-lg text-text-light"
+                  style={{ border: '1px solid #E8DDD0' }}>
+                  Cancelar
+                </button>
+                <button onClick={guardarArticulo}
+                  className="text-xs px-2.5 py-1 rounded-lg text-white font-medium"
+                  style={{ backgroundColor: '#7D9B7E' }}>
+                  Guardar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="font-serif font-semibold text-text text-base leading-tight">
+                {apartado.articulos?.nombre ?? '—'}
+              </h2>
+              <button
+                onClick={() => { setEditandoArticulo(true); setNuevoNombreArticulo(apartado.articulos?.nombre ?? ''); }}
+                className="text-base shrink-0 transition-colors"
+                style={{ color: '#B8956A' }}
+                title="Editar nombre del artículo">
+                ✎
+              </button>
+            </div>
+          )}
+
           {apartado.articulos?.descripcion && (
             <p className="text-xs text-text-light mb-3">{apartado.articulos.descripcion}</p>
           )}
@@ -240,8 +386,8 @@ export default function DetalleApartado() {
                       type="number"
                       value={nuevoDias}
                       onChange={e => setNuevoDias(e.target.value)}
-                      placeholder="Días"
-                      min="1"
+                      placeholder="Días restantes"
+                      min="0"
                       autoFocus
                       className="text-xs px-3 py-1.5 rounded-xl focus:outline-none"
                       style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '90px' }}
@@ -261,18 +407,24 @@ export default function DetalleApartado() {
                   <div className="flex items-center gap-1.5">
                     {(() => {
                       const hoy = new Date(); hoy.setHours(0,0,0,0);
-                      const inicio = new Date(apartado.created_at.split('T')[0] + 'T12:00:00');
+                      const inicio = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
                       const transcurridos = Math.floor((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
                       const restantes = apartado.dias_limite - transcurridos;
                       return (
                         <span className="text-xs px-2.5 py-1 rounded-full"
                           style={{ backgroundColor: restantes <= 0 ? 'rgba(220,38,38,0.10)' : 'rgba(184,149,106,0.12)', color: restantes <= 0 ? '#DC2626' : '#B8956A' }}>
-                          📅 {restantes <= 0 ? 'Vencido' : `${restantes} día${restantes === 1 ? '' : 's'} para liquidar`}
+                          🗓️ {restantes <= 0 ? 'Vencido' : `${restantes} día${restantes === 1 ? '' : 's'} para liquidar`}
                         </span>
                       );
                     })()}
                     <button
-                      onClick={() => { setEditandoDias(true); setNuevoDias(apartado.dias_limite?.toString() ?? ''); }}
+                      onClick={() => {
+                        const restantes = apartado.dias_limite
+                          ? Math.max(0, apartado.dias_limite - diasTranscurridos())
+                          : 0;
+                        setEditandoDias(true);
+                        setNuevoDias(restantes.toString());
+                      }}
                       className="text-base transition-colors"
                       style={{ color: '#B8956A' }}
                       title="Editar días">
@@ -284,7 +436,7 @@ export default function DetalleApartado() {
                     onClick={() => { setEditandoDias(true); setNuevoDias(''); }}
                     className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
                     style={{ border: '1px dashed #C4A49A', color: '#B8956A' }}>
-                    📅 Agregar días
+                    🗓️ Días para liquidar
                   </button>
                 )}
                 {editandoLugar ? (
@@ -384,9 +536,39 @@ export default function DetalleApartado() {
                   </span>
                   <span className="text-xs text-text-light ml-1.5">pendiente</span>
                 </div>
-                <span className="text-xs text-text-light">
-                  abonado ${abonado.toLocaleString('es-MX')} de ${precio.toLocaleString('es-MX')}
-                </span>
+                {editandoPrecio ? (
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                      <input
+                        type="number" value={nuevoPrecio}
+                        onChange={e => setNuevoPrecio(e.target.value)}
+                        min="0.01" step="0.01" autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') guardarPrecio(); if (e.key === 'Escape') setEditandoPrecio(false); }}
+                        className="pl-5 pr-2 py-1 rounded-lg text-xs text-text focus:outline-none"
+                        style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '90px' }} />
+                    </div>
+                    <button onClick={() => setEditandoPrecio(false)}
+                      className="text-xs px-2 py-1 rounded-lg text-text-light"
+                      style={{ border: '1px solid #E8DDD0' }}>Cancelar</button>
+                    <button onClick={guardarPrecio}
+                      className="text-xs px-2 py-1 rounded-lg text-white font-medium"
+                      style={{ backgroundColor: '#7D9B7E' }}>Guardar</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-text-light">
+                      abonado ${abonado.toLocaleString('es-MX')} de ${precio.toLocaleString('es-MX')}
+                    </span>
+                    <button
+                      onClick={() => { setEditandoPrecio(true); setNuevoPrecio(precio.toString()); }}
+                      className="text-base transition-colors"
+                      style={{ color: '#B8956A' }}
+                      title="Editar precio">
+                      ✎
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -431,6 +613,29 @@ export default function DetalleApartado() {
                 Marcar como liquidado
               </button>
             )}
+          </div>
+        )}
+
+        {/* Código QR */}
+        {qrUrl && (
+          <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">◼</span>
+                <h3 className="font-serif font-semibold text-text tracking-wide">Código QR</h3>
+              </div>
+              <button onClick={imprimir}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.25)' }}>
+                Imprimir
+              </button>
+            </div>
+            <div className="flex justify-center">
+              <img src={qrUrl} alt="QR del apartado" className="rounded-xl" style={{ width: 180, height: 180 }} />
+            </div>
+            <p className="text-xs text-center mt-3 font-serif" style={{ color: '#B8956A' }}>
+              Se actualiza automáticamente con cualquier cambio
+            </p>
           </div>
         )}
 

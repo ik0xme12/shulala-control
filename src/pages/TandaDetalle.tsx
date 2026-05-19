@@ -311,7 +311,7 @@ export default function TandaDetalle() {
               <div className="flex items-center gap-2">
                 {cobrador.telefono && (
                   <a href={`https://wa.me/${cobrador.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(
-                    `Hola ${cobrador.nombre}, te avisamos que en esta semana te toca recibir tu artículo de la tanda *${tanda.nombre}* 🎉 ¡Felicidades! 🛍️`
+                    `Hola ${cobrador.nombre}, te avisamos que en esta semana te toca recibir tu artículo de la tanda *${tanda.nombre}*. ¡Felicidades!`
                   )}`}
                     target="_blank" rel="noopener noreferrer"
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
@@ -436,7 +436,7 @@ export default function TandaDetalle() {
                     </div>
                     {p.telefono && !pagado && (
                       <a href={`https://wa.me/${p.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(
-                        `Hola ${p.nombre}, te recordamos que esta semana corresponde entregar tu aportación de la tanda *${tanda.nombre}*. ¡Gracias! 🛍️`
+                        `Hola ${p.nombre}, te recordamos que esta semana corresponde entregar tu aportación de la tanda *${tanda.nombre}*. ¡Gracias!`
                       )}`}
                         target="_blank" rel="noopener noreferrer"
                         className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all"
@@ -641,7 +641,7 @@ export default function TandaDetalle() {
             style={{ border: '1px solid #E8DDD0' }}
             onClick={e => e.stopPropagation()}>
             <div className="text-center mb-4">
-              <div className="text-3xl mb-2">📅</div>
+              <div className="text-3xl mb-2">🗓️</div>
               <h3 className="font-serif font-semibold text-text text-base">Adelanto de pago</h3>
               <p className="text-sm text-text-light mt-2">
                 La ronda {confirmacion.ronda} corresponde al{' '}

@@ -93,7 +93,7 @@ export default function NuevoApartado() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <Header titulo="Nuevo Apartado" backTo="/" />
+      <Header titulo="Nuevo Apartado" backTo="/apartados" />
 
       <main className="max-w-2xl mx-auto px-4 py-5">
         <form onSubmit={guardar} className="space-y-3 animate-slide-up">
@@ -120,7 +120,6 @@ export default function NuevoApartado() {
                           onMouseDown={e => e.preventDefault()}>
                           <div>
                             <div className="font-medium text-text text-sm font-serif">{c.nombre}</div>
-                            {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
                               {c.numApartados} activo{c.numApartados !== 1 ? 's' : ''}
                             </div>

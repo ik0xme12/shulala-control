@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 type Props = {
   titulo: string;
@@ -8,46 +8,56 @@ type Props = {
 };
 
 const NAV = [
-  { label: 'Tandas',    to: '/tanda',    color: '#7A6A62', match: (p: string) => p.startsWith('/tanda') },
-  { label: 'Entregas',  to: '/entregas', color: '#B8956A', match: (p: string) => p === '/entregas' },
-  { label: 'Apartados', to: '/',         color: '#7D9B7E', match: (p: string) => p === '/' },
+  { label: 'Tandas',    to: '/tanda',     color: '#7A6A62', match: (p: string) => p.startsWith('/tanda') },
+  { label: 'Entregas',  to: '/entregas',  color: '#B8956A', match: (p: string) => p === '/entregas' },
+  { label: 'Apartados', to: '/apartados', color: '#7D9B7E', match: (p: string) => p === '/apartados' },
 ];
 
 export default function Header({ titulo, backTo, backLabel = '← Volver', accion }: Props) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const handleBack = () => navigate(-1);
+
   return (
     <header className="bg-white sticky top-0 z-10" style={{ borderBottom: '1px solid #D4B896' }}>
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="max-w-2xl mx-auto px-4 py-3 relative flex items-center justify-between">
+
+        {/* Izquierda: volver (sub-páginas) o espacio vacío */}
+        <div className="flex items-center gap-2 shrink-0">
           {backTo && (
-            <Link to={backTo} className="text-sm shrink-0" style={{ color: '#7A6A62' }}>
+            <button onClick={handleBack} className="text-sm shrink-0" style={{ color: '#7A6A62' }}>
               {backLabel}
-            </Link>
+            </button>
           )}
-          {!backTo && (
-            <img src="/logo.jpg" alt="Shulalá" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: '#B8956A' }} />
-          )}
-          <span className="font-serif font-semibold text-text truncate">{titulo}</span>
+          {backTo && titulo && <span className="font-serif font-semibold text-text truncate">{titulo}</span>}
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Izquierda: Shulalá (solo en secciones principales) */}
+        {!backTo && (
+          <div>
+            <div className="font-script text-3xl leading-tight" style={{ color: '#2C2422', letterSpacing: '0.18em' }}>Shulalá</div>
+            <div className="text-xs tracking-widest uppercase leading-tight" style={{ color: '#B8956A' }}>Boutique Control</div>
+          </div>
+        )}
+
+        {/* Derecha: nav */}
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           {accion}
-          {NAV.map(n => {
-            const activo = n.match(pathname);
-            return activo ? (
-              <span key={n.to}
-                className="text-xs font-medium px-3 py-1.5 rounded-xl shrink-0"
-                style={{ color: '#C8BDB8', border: '1px solid #E8DDD0', pointerEvents: 'none' }}>
-                {n.label}
-              </span>
-            ) : (
-              <Link key={n.to} to={n.to}
-                className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
-                style={{ color: n.color, border: `1px solid ${n.color}` }}>
-                {n.label}
-              </Link>
-            );
-          })}
+          {NAV.filter(n => !n.match(pathname)).map(n => (
+            <Link key={n.to} to={n.to}
+              className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+              style={{ color: n.color, border: `1px solid ${n.color}` }}>
+              {n.label}
+            </Link>
+          ))}
+          <Link to="/"
+            className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+            style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
+            ← Menú
+          </Link>
         </div>
+
       </div>
     </header>
   );

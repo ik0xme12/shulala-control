@@ -20,7 +20,7 @@
 
 @layer base {
   body {
-    background-color: #F5F0E8;
+    background-color: transparent;
     color: #2C2422;
     font-family: 'Jost', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;

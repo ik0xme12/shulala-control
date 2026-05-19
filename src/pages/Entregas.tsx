@@ -1,14 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
 import { getApartadosFull, updateApartado } from '../lib/dataService';
 import Header from '../components/Header';
+import { useSyncReady } from '../lib/SyncContext';
+
+const SS_KEY = 'entregas_q';
+
+type ResumenCliente = {
+  nombre: string;
+  tel: string;
+  apartados: Apartado[];
+};
 
 export default function Entregas() {
+  const [busqueda, setBusquedaState] = useState(() => sessionStorage.getItem(SS_KEY) ?? '');
+  const setBusqueda = (v: string) => {
+    setBusquedaState(v);
+    if (v) sessionStorage.setItem(SS_KEY, v);
+    else sessionStorage.removeItem(SS_KEY);
+  };
+
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [entregando, setEntregando] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'entregado'>('pendiente');
+  const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
+  const syncReady = useSyncReady();
 
   const cargar = async () => {
     setCargando(true);
@@ -17,7 +35,14 @@ export default function Entregas() {
     setCargando(false);
   };
 
-  useEffect(() => { cargar(); }, []);
+  const prevFiltro = useRef(filtro);
+  useEffect(() => { cargar(); }, [syncReady]);
+  useEffect(() => {
+    if (prevFiltro.current !== filtro) {
+      setBusqueda(''); setClienteExpandido(null);
+      prevFiltro.current = filtro;
+    }
+  }, [filtro]);
 
   const marcarEntregado = async (ap: Apartado) => {
     setEntregando(ap.id);
@@ -26,24 +51,35 @@ export default function Entregas() {
     cargar();
   };
 
-  const activoCount = apartados.filter(a => a.estado === 'activo').length;
+  const activoCount    = apartados.filter(a => a.estado === 'activo').length;
   const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
   const entregadoCount = apartados.filter(a => a.entregado).length;
 
   const filtrados = apartados.filter(ap => {
-    if (filtro === 'activo') return ap.estado === 'activo';
+    if (filtro === 'activo')    return ap.estado === 'activo';
     if (filtro === 'entregado') return ap.entregado;
     return ap.estado === 'liquidado' && !ap.entregado;
   });
 
-  const mapa = new Map<string, Apartado[]>();
-  const sinLugar: Apartado[] = [];
+  const q = busqueda.trim().toLowerCase();
+
+  // Agrupa por lugar_entrega → clientes → apartados
+  const porLugar = new Map<string, Map<string, ResumenCliente>>();
   for (const ap of filtrados) {
-    if (!ap.lugar_entrega) { sinLugar.push(ap); continue; }
-    if (!mapa.has(ap.lugar_entrega)) mapa.set(ap.lugar_entrega, []);
-    mapa.get(ap.lugar_entrega)!.push(ap);
+    if (q && !ap.cliente_nombre.toLowerCase().includes(q)) continue;
+    const lugar = ap.lugar_entrega || '';
+    if (!porLugar.has(lugar)) porLugar.set(lugar, new Map());
+    const clientes = porLugar.get(lugar)!;
+    if (!clientes.has(ap.cliente_nombre))
+      clientes.set(ap.cliente_nombre, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', apartados: [] });
+    clientes.get(ap.cliente_nombre)!.apartados.push(ap);
   }
-  const grupos = Array.from(mapa.entries());
+
+  // Lugares con nombre primero, sin nombre al final
+  const lugaresConNombre = Array.from(porLugar.entries()).filter(([l]) => l !== '');
+  const sinLugarClientes = porLugar.get('');
+
+  const totalVisible = Array.from(porLugar.values()).reduce((s, m) => s + m.size, 0);
 
   if (cargando) return (
     <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -53,16 +89,16 @@ export default function Entregas() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <Header titulo="Entregas" backTo="/" />
+      <Header titulo="Entregas" />
 
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
         {/* Filtros */}
         <div className="grid grid-cols-3 gap-3 animate-slide-up">
           {([
-            { key: 'activo', label: 'Activos', count: activoCount, color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
+            { key: 'activo',    label: 'Activos',      count: activoCount,    color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
             { key: 'pendiente', label: 'Por entregar', count: pendienteCount, color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
-            { key: 'entregado', label: 'Entregados', count: entregadoCount, color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
+            { key: 'entregado', label: 'Entregados',   count: entregadoCount, color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
           ] as const).map(f => (
             <button key={f.key} onClick={() => setFiltro(f.key)}
               className="rounded-2xl p-3 text-center transition-all"
@@ -75,45 +111,112 @@ export default function Entregas() {
           ))}
         </div>
 
-        {/* Lista vacía */}
+        {/* Buscador */}
+        {filtrados.length > 0 && (
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base pointer-events-none" style={{ color: '#B8956A' }}>⌕</span>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => { setBusqueda(e.target.value); setClienteExpandido(null); }}
+              placeholder="Buscar cliente..."
+              className="w-full pl-8 pr-9 py-2 rounded-xl text-sm text-text focus:outline-none"
+              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
+            />
+            {busqueda && (
+              <button
+                onClick={() => { setBusqueda(''); setClienteExpandido(null); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                style={{ backgroundColor: '#C4A49A', color: 'white' }}>
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Sin resultados */}
         {filtrados.length === 0 && (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">📦</div>
-            <p className="font-serif text-text-light">
-              Sin resultados
-            </p>
+            <p className="font-serif text-text-light">Sin resultados</p>
           </div>
         )}
+        {filtrados.length > 0 && totalVisible === 0 && q && (
+          <p className="text-center text-sm py-8 font-serif" style={{ color: '#7A6A62' }}>Sin resultados para "{busqueda}"</p>
+        )}
 
-        {/* Grupos por lugar */}
-        {grupos.map(([lugar, aps]) => (
-          <div key={lugar} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
-            <div className="flex items-center gap-2 px-5 py-3"
-              style={{ borderBottom: '1px solid #D4C4B0', backgroundColor: '#E8DDD0' }}>
-              <span style={{ color: '#B8956A' }}>📍</span>
-              <span className="font-serif font-semibold text-text tracking-wide">{lugar}</span>
-              <span className="ml-auto font-sans font-bold text-sm" style={{ color: '#B8956A' }}>{aps.length}</span>
+        {/* Secciones por punto de entrega */}
+        {lugaresConNombre.map(([lugar, clientesMap]) => (
+          <div key={lugar} className="space-y-2">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: '#E8DDD0' }}>
+              <span>📍</span>
+              <span className="font-serif font-semibold text-sm tracking-wide" style={{ color: '#7A6A62' }}>{lugar}</span>
+              <span className="text-xs font-medium ml-auto" style={{ color: '#9A8A82' }}>{clientesMap.size} cliente{clientesMap.size !== 1 ? 's' : ''}</span>
             </div>
-            <div className="divide-y divide-[#E8DDD0]">
-              {aps.map(ap => <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={marcarEntregado} />)}
-            </div>
+            {Array.from(clientesMap.values()).map(c => (
+              <TarjetaCliente key={c.nombre} c={c}
+                expandido={q ? true : clienteExpandido === `${lugar}:${c.nombre}`}
+                onToggle={() => !q && setClienteExpandido(clienteExpandido === `${lugar}:${c.nombre}` ? null : `${lugar}:${c.nombre}`)}
+                entregando={entregando} onMarcar={marcarEntregado} />
+            ))}
           </div>
         ))}
 
-        {/* Sin lugar */}
-        {sinLugar.length > 0 && (
-          <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
-            <div className="flex items-center gap-2 px-5 py-3"
-              style={{ borderBottom: '1px solid #E8DDD0', backgroundColor: '#F5F0E8' }}>
-              <span className="font-serif font-semibold text-text-light tracking-wide text-sm">Sin lugar asignado</span>
-              <span className="ml-auto font-sans font-bold text-sm text-text-light">{sinLugar.length}</span>
+        {/* Sin lugar asignado */}
+        {sinLugarClientes && sinLugarClientes.size > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
+              style={{ backgroundColor: '#B8956A' }}>
+              <span>📦</span>
+              <span className="font-serif font-semibold text-sm tracking-wide" style={{ color: 'white' }}>Sin punto de entrega</span>
+              <span className="text-xs font-medium ml-auto" style={{ color: 'rgba(255,255,255,0.8)' }}>{sinLugarClientes!.size} cliente{sinLugarClientes!.size !== 1 ? 's' : ''}</span>
             </div>
-            <div className="divide-y divide-[#E8DDD0]">
-              {sinLugar.map(ap => <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={marcarEntregado} />)}
-            </div>
+            {Array.from(sinLugarClientes.values()).map(c => (
+              <TarjetaCliente key={c.nombre} c={c}
+                expandido={q ? true : clienteExpandido === `:${c.nombre}`}
+                onToggle={() => !q && setClienteExpandido(clienteExpandido === `:${c.nombre}` ? null : `:${c.nombre}`)}
+                entregando={entregando} onMarcar={marcarEntregado} />
+            ))}
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function TarjetaCliente({ c, expandido, onToggle, entregando, onMarcar }: {
+  c: ResumenCliente;
+  expandido: boolean;
+  onToggle: () => void;
+  entregando: string | null;
+  onMarcar: (ap: Apartado) => void;
+}) {
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+      <button className="w-full p-4 text-left" onClick={onToggle}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0"
+            style={{ backgroundColor: '#C4A49A' }}>
+            {c.nombre.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-serif font-semibold text-text">{c.nombre}</div>
+            {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
+            <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
+              {c.apartados.length} producto{c.apartados.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <span className="text-xs text-text-light shrink-0">{expandido ? '▲' : '▼'}</span>
+        </div>
+      </button>
+      {expandido && (
+        <div className="border-t divide-y divide-[#E8DDD0] animate-fade-in" style={{ borderColor: '#E8DDD0' }}>
+          {c.apartados.map(ap => (
+            <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={onMarcar} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -127,7 +230,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
   const dias = (() => {
     if (!ap.dias_limite) return null;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const creado = new Date(ap.created_at.split('T')[0] + 'T12:00:00');
+    const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
     const diff = Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
     return ap.dias_limite - diff;
   })();
@@ -141,7 +244,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
           {ap.estado === 'activo' && dias !== null && (
             <div className="text-xs font-medium shrink-0"
               style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
-              {dias <= 0 ? `⚠ ${Math.abs(dias)}d` : `📅 ${dias}d`}
+              {dias <= 0 ? `⚠ ${Math.abs(dias)}d` : `🗓️ ${dias}d`}
             </div>
           )}
         </div>
@@ -167,8 +270,8 @@ function FilaApartado({ ap, entregando, onToggle }: {
         <a
           href={`https://wa.me/${ap.cliente_tel.replace(/\D/g, '')}?text=${encodeURIComponent(
             puedeEntregar
-              ? `Hola ${ap.cliente_nombre}, tu pedido de *${ap.articulos?.nombre}* ya está listo para recoger${ap.lugar_entrega ? ` en *${ap.lugar_entrega}*` : ''}. ¡Esperamos verte pronto! 🛍️`
-              : `Hola ${ap.cliente_nombre}, te recordamos tu apartado de *${ap.articulos?.nombre}*. ¡Pasa a liquidarlo y recogerlo pronto! 🛍️`
+              ? `Hola ${ap.cliente_nombre}, tu pedido de *${ap.articulos?.nombre}* ya está listo para recoger${ap.lugar_entrega ? ` en *${ap.lugar_entrega}*` : ''}. ¡Esperamos verte pronto!`
+              : `Hola ${ap.cliente_nombre}, te recordamos tu apartado de *${ap.articulos?.nombre}*. ¡Pasa a liquidarlo y recogerlo pronto!`
           )}`}
           target="_blank" rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}

@@ -121,6 +121,11 @@ export async function updateApartado(id: string, data: Partial<Apartado>) {
   await writeSupabase('apartados', 'update', data as Record<string, unknown>, { id });
 }
 
+export async function updateArticulo(id: string, data: { nombre?: string; precio_total?: number }) {
+  await db.articulos.update(id, data as Record<string, unknown>);
+  await writeSupabase('articulos', 'update', data as Record<string, unknown>, { id });
+}
+
 export async function insertAbono(abono: Abono) {
   await db.abonos.put(abono);
   await writeSupabase('abonos', 'insert', abono as Record<string, unknown>);
