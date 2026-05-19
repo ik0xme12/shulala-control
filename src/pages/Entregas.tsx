@@ -121,7 +121,7 @@ export default function Entregas() {
               onChange={e => { setBusqueda(e.target.value); setClienteExpandido(null); }}
               placeholder="Buscar cliente..."
               className="w-full pl-8 pr-9 py-2 rounded-xl text-sm text-text focus:outline-none"
-              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' }}
+              style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' }}
             />
             {busqueda && (
               <button
