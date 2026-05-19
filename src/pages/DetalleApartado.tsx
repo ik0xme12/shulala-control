@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import QRCode from 'qrcode';
 import { useParams, useNavigate } from 'react-router-dom';
 import { type Apartado, type Abono } from '../lib/supabase';
 import { getApartado, getApartadosFull, updateApartado, updateArticulo, insertAbono, updateAbono, deleteAbono, deleteApartado } from '../lib/dataService';
@@ -33,7 +32,6 @@ export default function DetalleApartado() {
   const [nuevoNombreArticulo, setNuevoNombreArticulo] = useState('');
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [nuevoPrecio, setNuevoPrecio] = useState('');
-  const [qrUrl, setQrUrl] = useState<string>('');
 
   const cargar = async () => {
     const data = await getApartado(id!);
@@ -52,25 +50,6 @@ export default function DetalleApartado() {
     );
   }, []);
 
-  useEffect(() => {
-    if (!apartado) return;
-    const precio = apartado.articulos?.precio_total ?? 0;
-    const ab = (apartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-    const pend = precio - ab;
-    const lineas = [
-      'SHULALÁ BOUTIQUE',
-      `Cliente: ${apartado.cliente_nombre}`,
-      apartado.cliente_tel ? `Tel: ${apartado.cliente_tel}` : null,
-      `Artículo: ${apartado.articulos?.nombre ?? ''}`,
-      `Total: $${precio.toLocaleString('es-MX')}`,
-      `Abonado: $${ab.toLocaleString('es-MX')}`,
-      `Restante: $${pend.toLocaleString('es-MX')}`,
-      apartado.lugar_entrega ? `Entrega: ${apartado.lugar_entrega}` : null,
-      apartado.notas ? `Notas: ${apartado.notas}` : null,
-    ].filter(Boolean).join('\n');
-    QRCode.toDataURL(lineas, { margin: 1, width: 240, color: { dark: '#2C2422', light: '#FFFFFF' } })
-      .then(url => setQrUrl(url));
-  }, [apartado]);
 
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
@@ -190,54 +169,6 @@ export default function DetalleApartado() {
     cargar();
   };
 
-  const imprimir = () => {
-    if (!qrUrl || !apartado) return;
-    const precio = apartado.articulos?.precio_total ?? 0;
-    const ab = (apartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-    const pend = precio - ab;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Georgia,serif;background:#fff;color:#2C2422;padding:24px;max-width:320px;margin:0 auto}
-  .titulo{font-style:italic;font-size:26px;letter-spacing:.1em;text-align:center}
-  .sub{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:#B8956A;text-align:center;margin-bottom:16px}
-  hr{border:none;border-top:1px solid #E8DDD0;margin:12px 0}
-  .qr{text-align:center;margin:12px 0}
-  .qr img{width:180px;height:180px}
-  .fila{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px dotted #E8DDD0;font-size:12px}
-  .lbl{color:#7A6A62}
-  .val{font-weight:600;text-align:right;max-width:60%}
-  .pend-label{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:#7A6A62;text-align:center;margin-top:14px}
-  .pend{font-size:28px;font-weight:700;color:#B8956A;text-align:center;margin-top:2px}
-  .fecha{font-size:9px;color:#7A6A62;text-align:center;margin-top:14px}
-</style>
-</head><body>
-  <div class="titulo">Shulalá</div>
-  <div class="sub">Boutique Control</div>
-  <div class="qr"><img src="${qrUrl}" /></div>
-  <hr>
-  <div class="fila"><span class="lbl">Cliente</span><span class="val">${apartado.cliente_nombre}</span></div>
-  ${apartado.cliente_tel ? `<div class="fila"><span class="lbl">Teléfono</span><span class="val">${apartado.cliente_tel}</span></div>` : ''}
-  <div class="fila"><span class="lbl">Artículo</span><span class="val">${apartado.articulos?.nombre ?? ''}</span></div>
-  ${apartado.lugar_entrega ? `<div class="fila"><span class="lbl">Lugar de entrega</span><span class="val">${apartado.lugar_entrega}</span></div>` : ''}
-  ${apartado.notas ? `<div class="fila"><span class="lbl">Notas</span><span class="val">${apartado.notas}</span></div>` : ''}
-  <hr>
-  <div class="fila"><span class="lbl">Total</span><span class="val">$${precio.toLocaleString('es-MX')}</span></div>
-  <div class="fila"><span class="lbl">Abonado</span><span class="val">$${ab.toLocaleString('es-MX')}</span></div>
-  <div class="pend-label">PENDIENTE</div>
-  <div class="pend">$${pend.toLocaleString('es-MX')}</div>
-  <div class="fecha">${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-</body></html>`;
-    const iframe = document.createElement('iframe');
-    Object.assign(iframe.style, { position: 'fixed', width: '0', height: '0', border: '0', top: '0', left: '0' });
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
-    doc.open(); doc.write(html); doc.close();
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => document.body.removeChild(iframe), 1000);
-  };
 
   if (cargando) return (
     <div className="min-h-screen bg-cream flex items-center justify-center">
