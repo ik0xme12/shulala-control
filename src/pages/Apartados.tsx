@@ -398,7 +398,6 @@ export default function Apartados() {
                           </div>
                           <div>
                             <div className="font-serif font-semibold text-text">{c.nombre}</div>
-                            {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
                               {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
                             </div>

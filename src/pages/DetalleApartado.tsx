@@ -367,7 +367,6 @@ export default function DetalleApartado() {
                   </div>
                   <div>
                     <div className="font-medium text-text text-sm">{apartado.cliente_nombre}</div>
-                    {apartado.cliente_tel && <div className="text-xs text-text-light">{apartado.cliente_tel}</div>}
                   </div>
                 </div>
                 <button
