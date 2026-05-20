@@ -41,58 +41,59 @@ const menuItems = [
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen flex flex-col bg-transparent">
+    <div className="flex flex-col bg-transparent" style={{ height: '100dvh' }}>
+      <div className="flex-1 flex flex-col w-full max-w-sm mx-auto" style={{ padding: '2vh 1rem', minHeight: 0 }}>
 
-      <main className="flex-1 flex items-start justify-center px-5 pt-10 pb-6">
-        <div className="w-full max-w-sm flex flex-col gap-4">
+        {/* Logo — se ajusta al espacio disponible */}
+        <div className="flex-1 flex flex-col items-center justify-center" style={{ minHeight: 0, marginBottom: '2vh' }}>
+          <img
+            src="/logo-shulala.jpeg"
+            alt="Logo Shulalá"
+            className="w-full object-contain"
+            style={{ minHeight: 0, maxHeight: '100%' }}
+          />
+          <svg width="100%" height="22" className="mt-1 shrink-0">
+            <text
+              textAnchor="middle" x="50%" y="16"
+              fill="#B8956A"
+              fontFamily="Jost, system-ui, sans-serif"
+              fontSize="15"
+              textLength="100%"
+              lengthAdjust="spacing">
+              BOUTIQUE CONTROL
+            </text>
+          </svg>
+        </div>
 
-          {/* Logo superior */}
-          <div className="flex flex-col items-center pb-2">
-            <img
-              src="/logo-shulala.jpeg"
-              alt="Logo Shulalá"
-              className="w-full h-auto object-contain"
-            />
-            <svg width="100%" height="28" className="mt-1">
-              <text
-                textAnchor="middle" x="50%" y="20"
-                fill="#B8956A"
-                fontFamily="Jost, system-ui, sans-serif"
-                fontSize="18"
-                textLength="100%"
-                lengthAdjust="spacing"
-                style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                BOUTIQUE CONTROL
-              </text>
-            </svg>
-          </div>
-
-          {/* Menú 2x2 */}
-          <div className="grid grid-cols-2 gap-4">
+        {/* Menú 2x2 — botones siempre cuadrados */}
+        <div className="grid grid-cols-2 shrink-0" style={{ gap: '12px' }}>
           {menuItems.map(({ to, emoji, label, desc, color, bg, border }) => (
             <Link
               key={to}
               to={to}
-              className="flex flex-col items-center justify-center rounded-3xl py-8 px-4 text-center transition-all active:scale-95"
+              className="flex flex-col items-center justify-center rounded-3xl px-3 text-center transition-all active:scale-95"
               style={{
+                aspectRatio: '1',
                 backgroundColor: bg,
                 border: `1.5px solid ${border}`,
                 textDecoration: 'none',
-                minHeight: 160,
               }}>
-              <span style={{ fontSize: 40, lineHeight: 1, marginBottom: 12 }}>{emoji}</span>
-              <span className="font-script font-bold text-2xl leading-tight w-full text-center break-words" style={{ color }}>
+              <span style={{ fontSize: 'clamp(24px, 6vw, 38px)', lineHeight: 1, marginBottom: 8 }}>
+                {emoji}
+              </span>
+              <span className="font-script font-bold w-full text-center break-words"
+                style={{ color, fontSize: 'clamp(17px, 4.5vw, 24px)', lineHeight: 1.2 }}>
                 {label}
               </span>
-              <span className="text-xs mt-2 leading-snug" style={{ color: '#7A6A62', opacity: 0.75 }}>
+              <span className="mt-1 leading-snug"
+                style={{ color: '#7A6A62', opacity: 0.75, fontSize: 'clamp(10px, 2.5vw, 12px)' }}>
                 {desc}
               </span>
             </Link>
           ))}
-          </div>
-
         </div>
-      </main>
+
+      </div>
     </div>
   );
 }

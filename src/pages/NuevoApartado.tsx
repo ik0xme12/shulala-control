@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import { getApartadosFull, insertArticuloYApartado, insertAbono } from '../lib/dataService';
 
@@ -18,9 +18,11 @@ const inputFocusStyle = { borderColor: '#B8956A' };
 
 export default function NuevoApartado() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const clienteParam = searchParams.get('cliente') ?? '';
   const [form, setForm] = useState({
     nombre: '', precio_total: '',
-    cliente_nombre: '', cliente_tel: '', abono_inicial: '', notas: '',
+    cliente_nombre: clienteParam, cliente_tel: '', abono_inicial: '', notas: '',
     dias_limite: '', lugar_entrega: '',
   });
   const [guardando, setGuardando] = useState(false);
@@ -33,18 +35,27 @@ export default function NuevoApartado() {
 
   useEffect(() => {
     getApartadosFull().then(data => {
-      const activos = data.filter(ap => ap.estado === 'activo');
       const mapa = new Map<string, ClienteSugerido>();
-      for (const ap of activos) {
+      for (const ap of data) {
         const key = ap.cliente_nombre;
         if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
-        const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-        const precio = ap.articulos?.precio_total ?? 0;
-        const c = mapa.get(key)!;
-        c.pendiente += precio - abonado;
-        c.numApartados++;
+        if (ap.estado === 'activo') {
+          const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+          const precio = ap.articulos?.precio_total ?? 0;
+          const c = mapa.get(key)!;
+          c.pendiente += precio - abonado;
+          c.numApartados++;
+        }
       }
-      setTodosClientes(Array.from(mapa.values()));
+      const lista = Array.from(mapa.values());
+      setTodosClientes(lista);
+      if (clienteParam) {
+        const encontrado = lista.find(c => c.nombre === clienteParam.toUpperCase());
+        if (encontrado) {
+          setClienteSeleccionado(encontrado);
+          setForm(f => ({ ...f, cliente_nombre: encontrado.nombre, cliente_tel: encontrado.tel }));
+        }
+      }
       const lugares = [...new Set(data.map(ap => ap.lugar_entrega).filter(Boolean) as string[])];
       setTodosLugares(lugares);
     });
@@ -80,7 +91,7 @@ export default function NuevoApartado() {
     try {
       await insertArticuloYApartado(
         { id: artId, nombre: form.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
-        { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: form.dias_limite ? parseInt(form.dias_limite) : null, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
+        { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: (() => { if (!form.dias_limite) return null; const hoy = new Date(); hoy.setHours(0,0,0,0); const limite = new Date(form.dias_limite + 'T00:00:00'); return Math.round((limite.getTime() - hoy.getTime()) / 86400000); })(), lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
       );
       if (abonoInicial > 0) {
         await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abonoInicial, nota: 'ABONO INICIAL', created_at: now });
@@ -178,9 +189,9 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              <input type="number" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
-                placeholder="Días límite" min="1"
-                className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '8rem' }}
+              <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '9rem', color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>
