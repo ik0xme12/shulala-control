@@ -37,8 +37,11 @@ export default function Apartados() {
   const [abonoClienteKey, setAbonoClienteKey] = useState<string | null>(null);
   const [abonosClienteKey, setAbonosClienteKey] = useState<string | null>(null);
   const [productoClienteKey, setProductoClienteKey] = useState<string | null>(null);
-  const [formProducto, setFormProducto] = useState({ nombre: '', precio: '', abono: '', fecha: '' });
+  const [formProducto, setFormProducto] = useState({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' });
+  const [recienLiquidados, setRecienLiquidados] = useState<{ id: string; nombre: string }[]>([]);
+  const [lugarEntregaRapido, setLugarEntregaRapido] = useState('');
   const [guardandoProducto, setGuardandoProducto] = useState(false);
+  const [mostrarLugaresProducto, setMostrarLugaresProducto] = useState(false);
   const [montoRapido, setMontoRapido] = useState('');
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
@@ -48,9 +51,9 @@ export default function Apartados() {
     const data = await getApartadosFull();
     const ordenados = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     if (filtro === 'liquidado') {
-      setApartados(ordenados.filter(ap => ap.estado === 'liquidado'));
+      setApartados(ordenados.filter(ap => ap.entregado === true));
     } else {
-      setApartados(ordenados);
+      setApartados(ordenados.filter(ap => ap.entregado !== true));
     }
     setCargando(false);
   };
@@ -92,7 +95,7 @@ export default function Apartados() {
   // pero incluye todos los apartados (activos + liquidados) en la lista expandida
   const resumenClientes = (() => {
     const mapa = new Map<string, ResumenCliente>();
-    for (const ap of soloActivos) {
+    for (const ap of apartados) {
       const key = ap.cliente_nombre;
       if (!mapa.has(key)) {
         mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', total: 0, pendiente: 0, numApartados: 0, apartados: [] });
@@ -101,11 +104,7 @@ export default function Apartados() {
       c.total += ap.articulos?.precio_total ?? 0;
       c.pendiente += pendiente(ap);
       c.numApartados++;
-    }
-    for (const ap of apartados) {
-      if (mapa.has(ap.cliente_nombre)) {
-        mapa.get(ap.cliente_nombre)!.apartados.push(ap);
-      }
+      c.apartados.push(ap);
     }
     return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
   })();
@@ -149,6 +148,11 @@ export default function Apartados() {
         c.apartados.some(ap => (ap.articulos?.nombre ?? '').toLowerCase().includes(q)))
     : resumenClientesHistorial;
 
+  const lugaresExistentes = [...new Set(apartados.map(ap => ap.lugar_entrega).filter(Boolean) as string[])];
+  const lugaresFiltradosProducto = lugaresExistentes.filter(l =>
+    !formProducto.lugar.trim() || l.toLowerCase().includes(formProducto.lugar.trim().toLowerCase())
+  );
+
   const guardarProducto = async (c: ResumenCliente) => {
     if (!formProducto.nombre.trim() || !formProducto.precio) return;
     const precio = parseFloat(formProducto.precio);
@@ -166,13 +170,13 @@ export default function Apartados() {
     })();
     await insertArticuloYApartado(
       { id: artId, nombre: formProducto.nombre.trim().toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
-      { id: apId, articulo_id: artId, cliente_nombre: c.nombre, cliente_tel: c.tel || null, notas: '', dias_limite: diasLimite, lugar_entrega: null, estado: 'activo', entregado: false, created_at: now },
+      { id: apId, articulo_id: artId, cliente_nombre: c.nombre, cliente_tel: c.tel || null, notas: '', dias_limite: diasLimite, lugar_entrega: formProducto.lugar.trim().toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
     );
     if (abono > 0) {
       await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abono, nota: 'ABONO INICIAL', created_at: now });
     }
     setProductoClienteKey(null);
-    setFormProducto({ nombre: '', precio: '', abono: '', fecha: '' });
+    setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' });
     setGuardandoProducto(false);
     cargar();
   };
@@ -184,6 +188,7 @@ export default function Apartados() {
     const apsConPendiente = [...c.apartados]
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .filter(ap => pendiente(ap) > 0);
+    const nuevosLiquidados: { id: string; nombre: string }[] = [];
     for (const ap of apsConPendiente) {
       if (restante <= 0) break;
       const pend = pendiente(ap);
@@ -191,11 +196,16 @@ export default function Apartados() {
       await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: abonoEste, nota: '', created_at: now });
       if (totalAbonado(ap) + abonoEste >= (ap.articulos?.precio_total ?? 0)) {
         await updateApartado(ap.id, { estado: 'liquidado' });
+        nuevosLiquidados.push({ id: ap.id, nombre: ap.articulos?.nombre ?? '' });
       }
       restante -= abonoEste;
     }
     setAbonoClienteKey(null);
     setMontoRapido('');
+    if (nuevosLiquidados.length > 0) {
+      setRecienLiquidados(nuevosLiquidados);
+      setLugarEntregaRapido('');
+    }
     cargar();
   };
 
@@ -345,7 +355,7 @@ export default function Apartados() {
                             </div>
                             <div className="text-xs px-2 py-0.5 rounded-full font-medium mt-0.5"
                               style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
-                              ✓ Liquidado
+                              ✓ Finalizado
                             </div>
                           </div>
                         </Link>
@@ -371,13 +381,13 @@ export default function Apartados() {
                   className="block bg-white rounded-2xl p-4 card-hover"
                   style={{ border: '1px solid #E8DDD0' }}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <div className="font-serif font-semibold text-text leading-tight truncate">{ap.articulos?.nombre}</div>
+                    <div className="text-sm font-medium text-text leading-tight truncate">{ap.articulos?.nombre}</div>
                     <div className="shrink-0 font-sans font-semibold" style={{ color: '#C4A49A' }}>
                       ${pend.toLocaleString('es-MX')}
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3 mt-1">
-                    <div className="text-sm text-text-light truncate">{ap.cliente_nombre}</div>
+                    <div className="font-serif font-semibold text-text text-sm truncate">{ap.cliente_nombre}</div>
                     {dias !== null && (
                       <div className="text-xs font-medium shrink-0"
                         style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
@@ -429,7 +439,7 @@ export default function Apartados() {
                             {c.nombre.charAt(0)}
                           </div>
                           <div>
-                            <div className="font-serif font-semibold text-text">{c.nombre}</div>
+                            <div className="font-serif font-semibold text-text" style={{ fontSize: '19px' }}>{c.nombre}</div>
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
                               {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
                             </div>
@@ -473,7 +483,7 @@ export default function Apartados() {
                           + Abonar
                         </button>
                         <button
-                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setAbonoClienteKey(null); setAbonosClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '' }); }}
+                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setAbonoClienteKey(null); setAbonosClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' }); }}
                           className="py-2 rounded-xl text-xs font-medium text-center transition-all"
                           style={productoClienteKey === c.nombre
                             ? { backgroundColor: '#B8956A', color: 'white', border: '1px solid #B8956A' }
@@ -555,6 +565,31 @@ export default function Apartados() {
                                 className="px-2 py-2 rounded-lg text-sm focus:outline-none"
                                 style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '14px', backgroundColor: 'white', color: formProducto.fecha ? '#2C2422' : '#7A6A62', width: '8.5rem' }} />
                             </div>
+                            <div className="relative">
+                              <input
+                                type="text" value={formProducto.lugar}
+                                onChange={e => { setFormProducto(f => ({ ...f, lugar: e.target.value })); setMostrarLugaresProducto(true); }}
+                                onFocus={() => { if (lugaresFiltradosProducto.length > 0) setMostrarLugaresProducto(true); }}
+                                onBlur={() => setTimeout(() => setMostrarLugaresProducto(false), 200)}
+                                placeholder="Lugar de entrega (opcional)"
+                                className="w-full rounded-lg px-3 py-2 text-sm text-text focus:outline-none uppercase placeholder:normal-case"
+                                style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
+                              {mostrarLugaresProducto && lugaresFiltradosProducto.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-30 overflow-y-auto"
+                                  style={{ border: '1px solid #E8DDD0', maxHeight: '160px' }}>
+                                  {lugaresFiltradosProducto.map((lugar, i) => (
+                                    <button key={i} type="button"
+                                      onMouseDown={e => e.preventDefault()}
+                                      onClick={() => { setFormProducto(f => ({ ...f, lugar })); setMostrarLugaresProducto(false); }}
+                                      className="w-full px-4 py-2.5 text-left text-sm text-text border-b last:border-0 flex items-center gap-2"
+                                      style={{ borderColor: '#E8DDD0' }}>
+                                      <span style={{ color: '#B8956A' }}>📍</span>
+                                      <span className="font-serif">{lugar}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <div className="flex gap-2 pt-1">
                               <button onClick={() => setProductoClienteKey(null)}
                                 className="flex-1 py-2 rounded-lg text-xs text-text-light"
@@ -589,18 +624,25 @@ export default function Apartados() {
                             </div>
                             {todosAbonos.length === 0 ? (
                               <p className="text-xs text-center py-4 font-serif" style={{ color: '#7A6A62' }}>Sin abonos registrados</p>
-                            ) : todosAbonos.map((ab, i) => (
-                              <div key={i} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-medium text-text truncate">{ab.articulo}</div>
-                                  {ab.nota && <div className="text-xs text-text-light">{ab.nota}</div>}
-                                </div>
-                                <div className="text-right shrink-0 ml-3">
-                                  <div className="text-sm font-semibold" style={{ color: '#7D9B7E' }}>${ab.monto.toLocaleString('es-MX')}</div>
-                                  <div className="text-xs text-text-light">{new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                                </div>
+                            ) : (
+                              <div className="px-3 py-2 space-y-1.5">
+                                {todosAbonos.map((ab, i) => (
+                                  <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                                    style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
+                                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                                      style={{ backgroundColor: '#7D9B7E' }}>
+                                      $
+                                    </div>
+                                    <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
+                                      {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </div>
+                                    <div className="text-base font-bold font-sans" style={{ color: '#7D9B7E' }}>
+                                      +${ab.monto.toLocaleString('es-MX')}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </div>
                         );
                       })()}
@@ -641,6 +683,54 @@ export default function Apartados() {
           </div>
         )}
       </main>
+
+      {/* Modal: artículos recién liquidados — definir lugar de entrega */}
+      {recienLiquidados.length > 0 && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">📦</span>
+              <h3 className="font-serif font-semibold text-text text-lg">
+                {recienLiquidados.length === 1 ? 'Artículo liquidado' : 'Artículos liquidados'}
+              </h3>
+            </div>
+            <div className="mb-4">
+              {recienLiquidados.map(item => (
+                <p key={item.id} className="text-sm font-medium text-text mt-1">• {item.nombre}</p>
+              ))}
+              <p className="text-sm text-text-light mt-2">¿Dónde se entregará al cliente?</p>
+            </div>
+            <input
+              type="text" value={lugarEntregaRapido}
+              onChange={e => setLugarEntregaRapido(e.target.value)}
+              placeholder="Lugar de entrega (opcional)"
+              autoFocus
+              className="w-full rounded-xl px-4 py-2.5 text-sm text-text focus:outline-none uppercase placeholder:normal-case mb-4"
+              style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' }} />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRecienLiquidados([])}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light"
+                style={{ border: '1px solid #E8DDD0' }}>
+                Omitir
+              </button>
+              <button
+                onClick={async () => {
+                  const lugar = lugarEntregaRapido.trim().toUpperCase() || null;
+                  if (lugar) {
+                    await Promise.all(recienLiquidados.map(item => updateApartado(item.id, { lugar_entrega: lugar })));
+                  }
+                  setRecienLiquidados([]);
+                  cargar();
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                style={{ backgroundColor: '#7D9B7E' }}>
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

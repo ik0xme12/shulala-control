@@ -201,7 +201,7 @@ function TarjetaCliente({ c, expandido, onToggle, entregando, onMarcar }: {
             {c.nombre.charAt(0)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-serif font-semibold text-text">{c.nombre}</div>
+            <div className="font-serif font-semibold text-text" style={{ fontSize: '19px' }}>{c.nombre}</div>
             {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
               {c.apartados.length} producto{c.apartados.length !== 1 ? 's' : ''}
@@ -238,7 +238,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <Link to={`/apartado/${ap.id}`} className="flex-1 min-w-0">
-        <div className="font-serif font-semibold text-text text-sm truncate">{ap.articulos?.nombre}</div>
+        <div className="font-medium text-text text-sm truncate">{ap.articulos?.nombre}</div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <div className="text-xs text-text-light truncate">{ap.cliente_nombre}</div>
           {ap.estado === 'activo' && dias !== null && (

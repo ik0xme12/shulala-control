@@ -32,6 +32,7 @@ export default function DetalleApartado() {
   const [nuevoNombreArticulo, setNuevoNombreArticulo] = useState('');
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [nuevoPrecio, setNuevoPrecio] = useState('');
+  const [confirmarFinalizar, setConfirmarFinalizar] = useState(false);
 
   const cargar = async () => {
     const data = await getApartado(id!);
@@ -113,22 +114,27 @@ export default function DetalleApartado() {
     cargar();
   };
 
+  const finalizar = async () => {
+    await updateApartado(id!, { entregado: true });
+    setConfirmarFinalizar(false);
+    cargar();
+  };
+
   const eliminar = async () => {
     await deleteApartado(id!);
     navigate('/');
   };
 
-  const diasTranscurridos = () => {
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const creado = new Date(apartado!.created_at.split('T')[0] + 'T00:00:00');
-    return Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
-  };
-
   const guardarDias = async () => {
-    const diasRestantes = parseInt(nuevoDias);
-    if (isNaN(diasRestantes) || diasRestantes < 0) return;
-    const nuevoLimite = diasRestantes === 0 ? null : diasTranscurridos() + diasRestantes;
-    await updateApartado(id!, { dias_limite: nuevoLimite });
+    if (!nuevoDias) {
+      await updateApartado(id!, { dias_limite: null });
+    } else {
+      const creado = new Date(apartado!.created_at.split('T')[0] + 'T00:00:00');
+      const limite = new Date(nuevoDias + 'T00:00:00');
+      const nuevoLimite = Math.round((limite.getTime() - creado.getTime()) / 86400000);
+      if (nuevoLimite <= 0) return;
+      await updateApartado(id!, { dias_limite: nuevoLimite });
+    }
     setEditandoDias(false);
     cargar();
   };
@@ -314,14 +320,13 @@ export default function DetalleApartado() {
                 {editandoDias ? (
                   <div className="flex items-center gap-1.5">
                     <input
-                      type="number"
+                      type="date"
                       value={nuevoDias}
                       onChange={e => setNuevoDias(e.target.value)}
-                      placeholder="Días restantes"
-                      min="0"
+                      min={new Date().toISOString().split('T')[0]}
                       autoFocus
                       className="text-xs px-3 py-1.5 rounded-xl focus:outline-none"
-                      style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '90px' }}
+                      style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '14px', width: '140px' }}
                     />
                     <button onClick={() => setEditandoDias(false)}
                       className="text-xs px-2.5 py-1 rounded-lg text-text-light"
@@ -350,11 +355,10 @@ export default function DetalleApartado() {
                     })()}
                     <button
                       onClick={() => {
-                        const restantes = apartado.dias_limite
-                          ? Math.max(0, apartado.dias_limite - diasTranscurridos())
-                          : 0;
+                        const creado = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
+                        const fechaLimite = new Date(creado.getTime() + (apartado.dias_limite ?? 0) * 86400000);
                         setEditandoDias(true);
-                        setNuevoDias(restantes.toString());
+                        setNuevoDias(fechaLimite.toISOString().split('T')[0]);
                       }}
                       className="text-base transition-colors"
                       style={{ color: '#B8956A' }}
@@ -505,6 +509,22 @@ export default function DetalleApartado() {
           </div>
         </div>
 
+        {/* Marcar como entregado */}
+        {liquidado && !apartado.entregado && (
+          <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">📦</span>
+              <h3 className="font-serif font-semibold text-text tracking-wide">Entrega del artículo</h3>
+            </div>
+            <p className="text-sm text-text-light mb-4">El pago está completo. Confirma cuando el artículo haya sido entregado al cliente.</p>
+            <button onClick={() => setConfirmarFinalizar(true)}
+              className="w-full py-3 rounded-xl font-semibold text-sm text-white tracking-widest uppercase transition-all"
+              style={{ backgroundColor: '#7D9B7E' }}>
+              Marcar como entregado
+            </button>
+          </div>
+        )}
+
         {/* Agregar abono */}
         {!liquidado && (
           <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
@@ -629,12 +649,32 @@ export default function DetalleApartado() {
         </div>
       </main>
 
+      {/* Modal finalizar */}
+      {confirmarFinalizar && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Marcar como entregado?</h3>
+            <p className="text-sm text-text-light mb-5">El apartado pasará al historial con la etiqueta "Finalizado" y ya no aparecerá en la lista de activos.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmarFinalizar(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                Cancelar
+              </button>
+              <button onClick={finalizar}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal liquidar */}
       {confirmarLiquidar && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
             <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Marcar como liquidado?</h3>
-            <p className="text-sm text-text-light mb-5">El apartado se moverá al historial de liquidados aunque quede saldo pendiente.</p>
+            <p className="text-sm text-text-light mb-5">El apartado quedará marcado como pagado. Podrás entregarlo después para que pase al historial.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmarLiquidar(false)}
                 className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
