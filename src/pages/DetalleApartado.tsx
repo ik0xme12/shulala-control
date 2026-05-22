@@ -117,7 +117,7 @@ export default function DetalleApartado() {
   const finalizar = async () => {
     await updateApartado(id!, { entregado: true });
     setConfirmarFinalizar(false);
-    cargar();
+    navigate('/apartados');
   };
 
   const eliminar = async () => {

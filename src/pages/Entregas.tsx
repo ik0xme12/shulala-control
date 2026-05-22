@@ -31,7 +31,24 @@ export default function Entregas() {
   const cargar = async () => {
     setCargando(true);
     const data = await getApartadosFull();
-    setApartados(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+
+    // Auto-finalizar: liquidado + no entregado + días límite vencidos
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const aFinalizar = data.filter(ap => {
+      if (ap.estado !== 'liquidado' || !!ap.entregado || !ap.dias_limite) return false;
+      const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
+      const diasTranscurridos = Math.floor((hoy.getTime() - creado.getTime()) / 86400000);
+      return diasTranscurridos > ap.dias_limite;
+    });
+    if (aFinalizar.length > 0) {
+      await Promise.all(aFinalizar.map(ap => updateApartado(ap.id, { entregado: true })));
+      // Recargar con datos actualizados
+      const actualizado = await getApartadosFull();
+      setApartados(actualizado.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    } else {
+      setApartados(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    }
+
     setCargando(false);
   };
 
@@ -53,11 +70,11 @@ export default function Entregas() {
 
   const activoCount    = apartados.filter(a => a.estado === 'activo').length;
   const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
-  const entregadoCount = apartados.filter(a => a.entregado).length;
+  const entregadoCount = apartados.filter(a => !!a.entregado).length;
 
   const filtrados = apartados.filter(ap => {
     if (filtro === 'activo')    return ap.estado === 'activo';
-    if (filtro === 'entregado') return ap.entregado;
+    if (filtro === 'entregado') return !!ap.entregado;
     return ap.estado === 'liquidado' && !ap.entregado;
   });
 
@@ -292,7 +309,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
           style={ap.entregado
             ? { backgroundColor: 'rgba(196,164,154,0.15)', color: '#9A7A70', border: '1px solid #C4A49A' }
             : { backgroundColor: '#7D9B7E', color: 'white' }}>
-          {entregando === ap.id ? '...' : ap.entregado ? '✓ Entregado' : 'Entregar →'}
+          {entregando === ap.id ? '...' : ap.entregado ? '✕ No Entregado' : 'Entregar →'}
         </button>
       ) : null}
     </div>

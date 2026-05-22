@@ -51,9 +51,9 @@ export default function Apartados() {
     const data = await getApartadosFull();
     const ordenados = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     if (filtro === 'liquidado') {
-      setApartados(ordenados.filter(ap => ap.entregado === true));
+      setApartados(ordenados.filter(ap => !!ap.entregado));
     } else {
-      setApartados(ordenados.filter(ap => ap.entregado !== true));
+      setApartados(ordenados.filter(ap => !ap.entregado));
     }
     setCargando(false);
   };
@@ -196,7 +196,9 @@ export default function Apartados() {
       await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: abonoEste, nota: '', created_at: now });
       if (totalAbonado(ap) + abonoEste >= (ap.articulos?.precio_total ?? 0)) {
         await updateApartado(ap.id, { estado: 'liquidado' });
-        nuevosLiquidados.push({ id: ap.id, nombre: ap.articulos?.nombre ?? '' });
+        if (!ap.lugar_entrega) {
+          nuevosLiquidados.push({ id: ap.id, nombre: ap.articulos?.nombre ?? '' });
+        }
       }
       restante -= abonoEste;
     }
@@ -647,7 +649,7 @@ export default function Apartados() {
                         );
                       })()}
 
-                      {c.apartados.map(ap => {
+                      {c.apartados.filter(ap => !ap.entregado).map(ap => {
                         const dias = diasRestantes(ap);
                         return (
                           <div key={ap.id} className="border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
@@ -705,8 +707,25 @@ export default function Apartados() {
               onChange={e => setLugarEntregaRapido(e.target.value)}
               placeholder="Lugar de entrega (opcional)"
               autoFocus
-              className="w-full rounded-xl px-4 py-2.5 text-sm text-text focus:outline-none uppercase placeholder:normal-case mb-4"
+              className="w-full rounded-xl px-4 py-2.5 text-sm text-text focus:outline-none uppercase placeholder:normal-case"
               style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' }} />
+            {(() => {
+              const lugaresFiltrados = lugaresExistentes.filter(l =>
+                !lugarEntregaRapido.trim() || l.toLowerCase().includes(lugarEntregaRapido.trim().toLowerCase())
+              );
+              return lugaresFiltrados.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mt-2 mb-2">
+                  {lugaresFiltrados.map((lugar, i) => (
+                    <button key={i} type="button"
+                      onClick={() => setLugarEntregaRapido(lugar)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
+                      style={{ backgroundColor: 'rgba(184,149,106,0.1)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.3)' }}>
+                      📍 {lugar}
+                    </button>
+                  ))}
+                </div>
+              ) : <div className="mb-4" />;
+            })()}
             <div className="flex gap-2">
               <button
                 onClick={() => setRecienLiquidados([])}
