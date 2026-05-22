@@ -32,7 +32,7 @@ const menuItems = [
     to: '/apartados?historial=1',
     emoji: '📊',
     label: 'Historial',
-    desc: 'Apartados liquidados',
+    desc: 'Apartados finalizados',
     color: '#7A6A62',
     bg: 'rgba(122,106,98,0.08)',
     border: 'rgba(122,106,98,0.2)',
