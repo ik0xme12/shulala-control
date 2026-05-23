@@ -43,6 +43,8 @@ export default function Apartados() {
   const [guardandoProducto, setGuardandoProducto] = useState(false);
   const [mostrarLugaresProducto, setMostrarLugaresProducto] = useState(false);
   const [montoRapido, setMontoRapido] = useState('');
+  const [fechaAbonoRapido, setFechaAbonoRapido] = useState('');
+  const fechaInputRef = useRef<HTMLInputElement>(null);
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
 
@@ -184,7 +186,9 @@ export default function Apartados() {
   const registrarAbonoCliente = async (c: ResumenCliente) => {
     let restante = parseFloat(montoRapido);
     if (!restante || restante <= 0 || restante > c.pendiente) return;
-    const now = new Date().toISOString();
+    const now = fechaAbonoRapido
+      ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
+      : new Date().toISOString();
     const apsConPendiente = [...c.apartados]
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .filter(ap => pendiente(ap) > 0);
@@ -517,12 +521,31 @@ export default function Apartados() {
                                 className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none"
                                 style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
                             </div>
+                            {/* Selector de fecha — solo ícono */}
+                            <div className="relative shrink-0">
+                              <button type="button"
+                                onClick={() => fechaInputRef.current?.showPicker()}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg text-base transition-all"
+                                style={fechaAbonoRapido
+                                  ? { backgroundColor: '#7D9B7E', color: 'white', border: '1px solid #7D9B7E' }
+                                  : { backgroundColor: 'white', color: '#7A6A62', border: '1px solid #E8DDD0' }}
+                                title={fechaAbonoRapido || 'Fecha del sistema'}>
+                                🗓️
+                              </button>
+                              <input
+                                ref={fechaInputRef}
+                                type="date"
+                                value={fechaAbonoRapido}
+                                onChange={e => setFechaAbonoRapido(e.target.value)}
+                                max={new Date().toISOString().split('T')[0]}
+                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
+                            </div>
                             <button onClick={() => registrarAbonoCliente(c)}
                               className="text-xs px-3 py-2 rounded-lg text-white font-medium"
                               style={{ backgroundColor: '#7D9B7E' }}>
                               Guardar
                             </button>
-                            <button onClick={() => setAbonoClienteKey(null)}
+                            <button onClick={() => { setAbonoClienteKey(null); setFechaAbonoRapido(''); }}
                               className="text-xs px-2 py-2 rounded-lg"
                               style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
                               ✕

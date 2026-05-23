@@ -18,6 +18,7 @@ export default function DetalleApartado() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editMonto, setEditMonto] = useState('');
   const [editNota, setEditNota] = useState('');
+  const [editFecha, setEditFecha] = useState('');
   const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<string | null>(null);
   const [editandoLugar, setEditandoLugar] = useState(false);
   const [nuevoLugar, setNuevoLugar] = useState('');
@@ -91,7 +92,8 @@ export default function DetalleApartado() {
     const precio = apartado!.articulos?.precio_total ?? 0;
     const maxPermitido = precio - otrosAbonos;
     if (monto > maxPermitido) { setError(`Máximo $${maxPermitido.toLocaleString('es-MX')}`); return; }
-    await updateAbono(abono.id, { monto, nota: editNota.toUpperCase() || undefined });
+    const nuevaFecha = editFecha ? new Date(editFecha + 'T12:00:00').toISOString() : abono.created_at;
+    await updateAbono(abono.id, { monto, nota: editNota.toUpperCase() || undefined, created_at: nuevaFecha });
     const nuevoTotal = otrosAbonos + monto;
     if (nuevoTotal >= precio && apartado!.estado !== 'liquidado') {
       await updateApartado(id!, { estado: 'liquidado' });
@@ -593,6 +595,9 @@ export default function DetalleApartado() {
                             className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none bg-white"
                             style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
                         </div>
+                        <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)}
+                          className="py-2 px-2 rounded-lg text-xs focus:outline-none bg-white shrink-0"
+                          style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '130px', color: '#2C2422' }} />
                       </div>
                       <div className="flex gap-2 pt-1">
                         <button onClick={() => { setEditandoId(null); setError(''); }}
@@ -626,7 +631,7 @@ export default function DetalleApartado() {
                           {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
                         </span>
                         <button
-                          onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); }}
+                          onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); setEditFecha(abono.created_at.split('T')[0]); }}
                           className="text-base transition-colors"
                           style={{ color: '#7D9B7E' }}
                           title="Editar abono">
