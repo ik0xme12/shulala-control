@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
-import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado } from '../lib/dataService';
+import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono } from '../lib/dataService';
 import { useSyncReady } from '../lib/SyncContext';
 import Header from '../components/Header';
 
@@ -45,6 +45,8 @@ export default function Apartados() {
   const [montoRapido, setMontoRapido] = useState('');
   const [fechaAbonoRapido, setFechaAbonoRapido] = useState('');
   const fechaInputRef = useRef<HTMLInputElement>(null);
+  const [editandoAbonoId, setEditandoAbonoId] = useState<string | null>(null);
+  const [editFechaAbono, setEditFechaAbono] = useState('');
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
 
@@ -651,18 +653,39 @@ export default function Apartados() {
                             ) : (
                               <div className="px-3 py-2 space-y-1.5">
                                 {todosAbonos.map((ab, i) => (
-                                  <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                                  <div key={i} className="rounded-xl px-3 py-2.5"
                                     style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
-                                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                                      style={{ backgroundColor: '#7D9B7E' }}>
-                                      $
-                                    </div>
-                                    <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
-                                      {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                    </div>
-                                    <div className="text-base font-bold font-sans" style={{ color: '#7D9B7E' }}>
-                                      +${ab.monto.toLocaleString('es-MX')}
-                                    </div>
+                                    {editandoAbonoId === ab.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                                          style={{ backgroundColor: '#7D9B7E' }}>$</div>
+                                        <input
+                                          type="date"
+                                          value={editFechaAbono}
+                                          onChange={e => setEditFechaAbono(e.target.value)}
+                                          autoFocus
+                                          style={{ flex: 1, border: '1px solid #B8956A', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }}
+                                        />
+                                        <button onClick={async () => {
+                                          if (editFechaAbono) await updateAbono(ab.id, { created_at: new Date(editFechaAbono + 'T12:00:00').toISOString() });
+                                          setEditandoAbonoId(null);
+                                          cargar();
+                                        }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                                        <button onClick={() => setEditandoAbonoId(null)}
+                                          style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-3" onClick={() => { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); }} style={{ cursor: 'pointer' }}>
+                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                                          style={{ backgroundColor: '#7D9B7E' }}>$</div>
+                                        <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
+                                          {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </div>
+                                        <div className="text-base font-bold font-sans" style={{ color: '#7D9B7E' }}>
+                                          +${ab.monto.toLocaleString('es-MX')}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
