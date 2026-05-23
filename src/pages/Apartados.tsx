@@ -537,7 +537,6 @@ export default function Apartados() {
                                 type="date"
                                 value={fechaAbonoRapido}
                                 onChange={e => setFechaAbonoRapido(e.target.value)}
-                                max={new Date().toISOString().split('T')[0]}
                                 style={{ position: 'absolute', opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
                             </div>
                             <button onClick={() => registrarAbonoCliente(c)}
