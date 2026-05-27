@@ -123,8 +123,11 @@ export default function DetalleApartado() {
   };
 
   const eliminar = async () => {
+    const clienteNombre = apartado!.cliente_nombre;
     await deleteApartado(id!);
-    navigate('/');
+    const todos = await getApartadosFull();
+    const restantes = todos.filter(ap => ap.cliente_nombre === clienteNombre && !ap.entregado);
+    navigate(restantes.length > 0 ? '/apartados' : '/');
   };
 
   const guardarDias = async () => {
@@ -319,6 +322,12 @@ export default function DetalleApartado() {
               </div>
             )}
             <div className="flex flex-wrap gap-2 mt-2 items-start">
+                {apartado.entregado && (
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium shrink-0"
+                    style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.3)' }}>
+                    📦 Entregado
+                  </span>
+                )}
                 {editandoDias ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -461,10 +470,13 @@ export default function DetalleApartado() {
           {/* Montos */}
           <div className="mt-3 flex items-baseline justify-between">
             {liquidado ? (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
+              <button
+                onClick={() => updateApartado(id!, { estado: 'activo' }).then(cargar)}
+                className="text-xs font-medium px-2.5 py-1 rounded-full transition-all"
+                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
+                title="Toca para deshacer liquidación">
                 ✓ Liquidado · ${precio.toLocaleString('es-MX')}
-              </span>
+              </button>
             ) : (
               <>
                 <div>

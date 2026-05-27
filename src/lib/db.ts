@@ -34,6 +34,15 @@ export class ShulalaDB extends Dexie {
       tanda_pagos: 'id, tanda_participante_id, numero_ronda',
       sync_queue: '++id, ts',
     });
+    this.version(2).stores({
+      articulos: 'id',
+      apartados: 'id, articulo_id, estado, entregado',
+      abonos: 'id, apartado_id, pago_id',
+      tanda: 'id, archivada',
+      tanda_participantes: 'id, tanda_id, numero_turno',
+      tanda_pagos: 'id, tanda_participante_id, numero_ronda',
+      sync_queue: '++id, ts',
+    });
   }
 }
 

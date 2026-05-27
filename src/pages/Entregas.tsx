@@ -24,7 +24,7 @@ export default function Entregas() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [entregando, setEntregando] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'entregado'>('pendiente');
+  const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'entregado' | 'sin_liquidar'>('pendiente');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const syncReady = useSyncReady();
 
@@ -56,7 +56,7 @@ export default function Entregas() {
   useEffect(() => { cargar(); }, [syncReady]);
   useEffect(() => {
     if (prevFiltro.current !== filtro) {
-      setBusqueda(''); setClienteExpandido(null);
+      setClienteExpandido(null);
       prevFiltro.current = filtro;
     }
   }, [filtro]);
@@ -68,13 +68,15 @@ export default function Entregas() {
     cargar();
   };
 
-  const activoCount    = apartados.filter(a => a.estado === 'activo').length;
-  const pendienteCount = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
-  const entregadoCount = apartados.filter(a => !!a.entregado).length;
+  const activoCount      = apartados.filter(a => a.estado === 'activo' && !a.entregado).length;
+  const pendienteCount   = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
+  const entregadoCount   = apartados.filter(a => !!a.entregado).length;
+  const sinLiquidarCount = apartados.filter(a => !!a.entregado && a.estado !== 'liquidado').length;
 
   const filtrados = apartados.filter(ap => {
-    if (filtro === 'activo')    return ap.estado === 'activo';
-    if (filtro === 'entregado') return !!ap.entregado;
+    if (filtro === 'activo')       return ap.estado === 'activo' && !ap.entregado;
+    if (filtro === 'entregado')    return !!ap.entregado;
+    if (filtro === 'sin_liquidar') return !!ap.entregado && ap.estado !== 'liquidado';
     return ap.estado === 'liquidado' && !ap.entregado;
   });
 
@@ -111,19 +113,20 @@ export default function Entregas() {
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
         {/* Filtros */}
-        <div className="grid grid-cols-3 gap-3 animate-slide-up">
+        <div className="grid grid-cols-4 gap-2 animate-slide-up">
           {([
-            { key: 'activo',    label: 'Activos',      count: activoCount,    color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
-            { key: 'pendiente', label: 'Por entregar', count: pendienteCount, color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
-            { key: 'entregado', label: 'Entregados',   count: entregadoCount, color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
+            { key: 'activo',       label: 'Activos',      count: activoCount,      color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
+            { key: 'pendiente',    label: 'Por entregar', count: pendienteCount,   color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
+            { key: 'entregado',    label: 'Entregados',   count: entregadoCount,   color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
+            { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   border: '#DC2626' },
           ] as const).map(f => (
             <button key={f.key} onClick={() => setFiltro(f.key)}
-              className="rounded-2xl p-3 text-center transition-all"
+              className="rounded-2xl p-2.5 text-center transition-all"
               style={filtro === f.key
                 ? { backgroundColor: f.bg, border: `2px solid ${f.border}` }
                 : { backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
-              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: f.color }}>{f.count}</div>
-              <div className="text-xs text-text-light tracking-wide mt-0.5">{f.label}</div>
+              <div className="font-sans font-bold text-lg tracking-tight" style={{ color: f.color }}>{f.count}</div>
+              <div className="text-xs text-text-light tracking-wide mt-0.5 leading-tight">{f.label}</div>
             </button>
           ))}
         </div>
@@ -243,7 +246,7 @@ function FilaApartado({ ap, entregando, onToggle }: {
   entregando: string | null;
   onToggle: (ap: Apartado) => void;
 }) {
-  const puedeEntregar = ap.estado === 'liquidado';
+  const puedeEntregar = true;
   const dias = (() => {
     if (!ap.dias_limite) return null;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);

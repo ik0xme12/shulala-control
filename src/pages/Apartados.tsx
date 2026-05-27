@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
-import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono } from '../lib/dataService';
+import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono, deleteAbono } from '../lib/dataService';
 import { useSyncReady } from '../lib/SyncContext';
 import Header from '../components/Header';
 
@@ -32,6 +32,7 @@ export default function Apartados() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const filtro: 'activo' | 'liquidado' = esHistorial ? 'liquidado' : 'activo';
+  const [historialSubFiltro, setHistorialSubFiltro] = useState<'todos' | 'sin_liquidar'>('todos');
   const [vista, setVista] = useState<VistaTab>('clientes');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [abonoClienteKey, setAbonoClienteKey] = useState<string | null>(null);
@@ -47,6 +48,15 @@ export default function Apartados() {
   const fechaInputRef = useRef<HTMLInputElement>(null);
   const [editandoAbonoId, setEditandoAbonoId] = useState<string | null>(null);
   const [editFechaAbono, setEditFechaAbono] = useState('');
+  const [editMontoAbono, setEditMontoAbono] = useState('');
+  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string } | null>(null);
+  const [errorAbonoRapido, setErrorAbonoRapido] = useState('');
+  const [editandoGrupoId, setEditandoGrupoId] = useState<string | null>(null);
+  const [editFechaGrupo, setEditFechaGrupo] = useState('');
+  const [confirmarEliminarGrupo, setConfirmarEliminarGrupo] = useState<{ pagoId: string; items: { id: string; apartado_id: string }[] } | null>(null);
+  const [errorEditarAbono, setErrorEditarAbono] = useState('');
+  const [confirmarEntregar, setConfirmarEntregar] = useState<string | null>(null);
+  const [waApartado, setWaApartado] = useState<Apartado | null>(null);
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
 
@@ -57,7 +67,7 @@ export default function Apartados() {
     if (filtro === 'liquidado') {
       setApartados(ordenados.filter(ap => !!ap.entregado));
     } else {
-      setApartados(ordenados.filter(ap => !ap.entregado));
+      setApartados(ordenados.filter(ap => !ap.entregado || (!!ap.entregado && ap.estado !== 'liquidado')));
     }
     setCargando(false);
   };
@@ -187,19 +197,25 @@ export default function Apartados() {
 
   const registrarAbonoCliente = async (c: ResumenCliente) => {
     let restante = parseFloat(montoRapido);
-    if (!restante || restante <= 0 || restante > c.pendiente) return;
+    if (!restante || restante <= 0) return;
+    if (restante > c.pendiente) {
+      setErrorAbonoRapido(`El monto supera la deuda total ($${c.pendiente.toLocaleString('es-MX')})`);
+      return;
+    }
+    setErrorAbonoRapido('');
     const now = fechaAbonoRapido
       ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
       : new Date().toISOString();
     const apsConPendiente = [...c.apartados]
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .filter(ap => pendiente(ap) > 0);
+    const pagoId = apsConPendiente.length > 1 ? crypto.randomUUID() : null;
     const nuevosLiquidados: { id: string; nombre: string }[] = [];
     for (const ap of apsConPendiente) {
       if (restante <= 0) break;
       const pend = pendiente(ap);
       const abonoEste = Math.min(restante, pend);
-      await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: abonoEste, nota: '', created_at: now });
+      await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: abonoEste, nota: '', created_at: now, pago_id: pagoId });
       if (totalAbonado(ap) + abonoEste >= (ap.articulos?.precio_total ?? 0)) {
         await updateApartado(ap.id, { estado: 'liquidado' });
         if (!ap.lugar_entrega) {
@@ -308,16 +324,40 @@ export default function Apartados() {
         ) : filtro === 'liquidado' ? (
           /* Historial agrupado por cliente */
           <div className="space-y-3 animate-fade-in">
+            {/* Toggle sub-filtro */}
+            <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+              <button
+                onClick={() => setHistorialSubFiltro('todos')}
+                className="flex-1 py-2 text-xs font-medium transition-all"
+                style={historialSubFiltro === 'todos'
+                  ? { backgroundColor: '#7D9B7E', color: 'white' }
+                  : { backgroundColor: 'white', color: '#7A6A62' }}>
+                Todos
+              </button>
+              <button
+                onClick={() => setHistorialSubFiltro('sin_liquidar')}
+                className="flex-1 py-2 text-xs font-medium transition-all"
+                style={historialSubFiltro === 'sin_liquidar'
+                  ? { backgroundColor: '#C4A49A', color: 'white' }
+                  : { backgroundColor: 'white', color: '#7A6A62', borderLeft: '1px solid #E8DDD0' }}>
+                Sin liquidar
+              </button>
+            </div>
+
             {clientesHistorialFiltrados.length === 0 && q && (
               <p className="text-center text-sm py-8 font-serif" style={{ color: '#7A6A62' }}>Sin resultados para "{busqueda}"</p>
             )}
             {clientesHistorialFiltrados.map(c => {
               const expandido = q ? true : clienteExpandido === c.nombre;
-              const apsCliente = q
+              let apsCliente = q
                 ? c.apartados.filter(ap =>
                     ap.cliente_nombre.toLowerCase().includes(q) ||
                     (ap.articulos?.nombre ?? '').toLowerCase().includes(q))
                 : c.apartados;
+              if (historialSubFiltro === 'sin_liquidar') {
+                apsCliente = apsCliente.filter(ap => ap.estado !== 'liquidado');
+              }
+              if (apsCliente.length === 0) return null;
               return (
                 <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
                   <button className="w-full p-4 text-left"
@@ -332,14 +372,14 @@ export default function Apartados() {
                           <div className="font-serif font-semibold text-text">{c.nombre}</div>
                           {c.tel && <div className="text-xs text-text-light">{c.tel}</div>}
                           <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
-                            {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''} liquidado{c.numApartados !== 1 ? 's' : ''}
+                            {apsCliente.length} artículo{apsCliente.length !== 1 ? 's' : ''} entregado{apsCliente.length !== 1 ? 's' : ''}
                           </div>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xs text-text-light">Total vendido</div>
+                        <div className="text-xs text-text-light">Total</div>
                         <div className="font-sans font-bold text-lg tracking-tight" style={{ color: '#7D9B7E' }}>
-                          ${c.pendiente.toLocaleString('es-MX')}
+                          ${apsCliente.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0).toLocaleString('es-MX')}
                         </div>
                         <div className="text-xs text-text-light">{expandido ? '▲' : '▼'}</div>
                       </div>
@@ -358,13 +398,20 @@ export default function Apartados() {
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-sm font-semibold" style={{ color: '#7D9B7E' }}>
+                            <div className="text-sm font-semibold" style={{ color: ap.estado === 'liquidado' ? '#7D9B7E' : '#C4A49A' }}>
                               ${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
                             </div>
-                            <div className="text-xs px-2 py-0.5 rounded-full font-medium mt-0.5"
-                              style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
-                              ✓ Finalizado
-                            </div>
+                            {ap.estado === 'liquidado' ? (
+                              <div className="text-xs px-2 py-0.5 rounded-full font-medium mt-0.5"
+                                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>
+                                ✓ Liquidado
+                              </div>
+                            ) : (
+                              <div className="text-xs px-2 py-0.5 rounded-full font-medium mt-0.5"
+                                style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A' }}>
+                                Sin liquidar
+                              </div>
+                            )}
                           </div>
                         </Link>
                       ))}
@@ -389,7 +436,15 @@ export default function Apartados() {
                   className="block bg-white rounded-2xl p-4 card-hover"
                   style={{ border: '1px solid #E8DDD0' }}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <div className="text-sm font-medium text-text leading-tight truncate">{ap.articulos?.nombre}</div>
+                    <div className="text-sm font-medium text-text leading-tight truncate flex items-center gap-1.5">
+                      {ap.articulos?.nombre}
+                      {ap.entregado && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                          style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.3)' }}>
+                          Entregado
+                        </span>
+                      )}
+                    </div>
                     <div className="shrink-0 font-sans font-semibold" style={{ color: '#C4A49A' }}>
                       ${pend.toLocaleString('es-MX')}
                     </div>
@@ -409,18 +464,17 @@ export default function Apartados() {
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs" style={{ color: '#B8956A' }}>{pct}%</span>
-                    {dias !== null && dias >= 1 && dias <= 5 && ap.cliente_tel && (
-                      <a href={`https://wa.me/${ap.cliente_tel.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${ap.cliente_nombre}, te recordamos que tu apartado de *${ap.articulos?.nombre}* vence en ${dias} día${dias !== 1 ? 's' : ''}. ¡No olvides liquidarlo!`)}`}
-                        target="_blank" rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
+                    {ap.cliente_tel && (
+                      <button
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); setWaApartado(ap); }}
                         className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg"
-                        style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.3)' }}>
+                        style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.3)', cursor: 'pointer' }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
                           <path d="M12 0C5.373 0 0 5.373 0 12c0 2.132.558 4.136 1.532 5.875L0 24l6.29-1.508A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.657-.502-5.187-1.378l-.371-.22-3.736.895.938-3.63-.242-.384A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
                         </svg>
-                        Recordar
-                      </a>
+                        Mensaje
+                      </button>
                     )}
                   </div>
                 </Link>
@@ -516,12 +570,12 @@ export default function Apartados() {
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
                               <input
                                 type="number" value={montoRapido}
-                                onChange={e => setMontoRapido(e.target.value)}
+                                onChange={e => { setMontoRapido(e.target.value); setErrorAbonoRapido(''); }}
                                 placeholder={`Máx $${c.pendiente.toLocaleString('es-MX')}`}
                                 autoFocus min="0.01" step="0.01"
-                                onKeyDown={e => { if (e.key === 'Enter') registrarAbonoCliente(c); if (e.key === 'Escape') setAbonoClienteKey(null); }}
+                                onKeyDown={e => { if (e.key === 'Enter') registrarAbonoCliente(c); if (e.key === 'Escape') { setAbonoClienteKey(null); setErrorAbonoRapido(''); } }}
                                 className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none"
-                                style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
+                                style={{ border: `1px solid ${errorAbonoRapido ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
                             </div>
                             {/* Selector de fecha — solo ícono */}
                             <div className="relative shrink-0">
@@ -546,12 +600,15 @@ export default function Apartados() {
                               style={{ backgroundColor: '#7D9B7E' }}>
                               Guardar
                             </button>
-                            <button onClick={() => { setAbonoClienteKey(null); setFechaAbonoRapido(''); }}
+                            <button onClick={() => { setAbonoClienteKey(null); setFechaAbonoRapido(''); setErrorAbonoRapido(''); }}
                               className="text-xs px-2 py-2 rounded-lg"
                               style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
                               ✕
                             </button>
                           </div>
+                          {errorAbonoRapido && (
+                            <p className="text-xs mt-1.5 px-1" style={{ color: '#DC2626' }}>{errorAbonoRapido}</p>
+                          )}
                         </div>
                       )}
 
@@ -638,6 +695,31 @@ export default function Apartados() {
                           .flatMap(ap => (ap.abonos ?? []).map(ab => ({ ...ab, articulo: ap.articulos?.nombre ?? '' })))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
+
+                        // Agrupar por pago_id
+                        type AbonoPanel = typeof todosAbonos[number];
+                        type Entrada =
+                          | { tipo: 'individual'; ab: AbonoPanel }
+                          | { tipo: 'grupo'; pagoId: string; total: number; fecha: string; items: AbonoPanel[] };
+                        const grupos = new Map<string, AbonoPanel[]>();
+                        const entradas: Entrada[] = [];
+                        for (const ab of todosAbonos) {
+                          if (ab.pago_id) {
+                            if (!grupos.has(ab.pago_id)) grupos.set(ab.pago_id, []);
+                            grupos.get(ab.pago_id)!.push(ab);
+                          } else {
+                            entradas.push({ tipo: 'individual', ab });
+                          }
+                        }
+                        for (const [pagoId, items] of grupos) {
+                          entradas.push({ tipo: 'grupo', pagoId, total: items.reduce((s, ab) => s + ab.monto, 0), fecha: items[0].created_at, items });
+                        }
+                        entradas.sort((a, b) => {
+                          const fa = a.tipo === 'individual' ? a.ab.created_at : a.fecha;
+                          const fb = b.tipo === 'individual' ? b.ab.created_at : b.fecha;
+                          return new Date(fb).getTime() - new Date(fa).getTime();
+                        });
+
                         return (
                           <div className="animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
                             <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'rgba(125,155,126,0.06)', borderBottom: '1px solid #E8DDD0' }}>
@@ -648,42 +730,167 @@ export default function Apartados() {
                                 Total: ${totalAbonos.toLocaleString('es-MX')}
                               </span>
                             </div>
-                            {todosAbonos.length === 0 ? (
+                            {entradas.length === 0 ? (
                               <p className="text-xs text-center py-4 font-serif" style={{ color: '#7A6A62' }}>Sin abonos registrados</p>
                             ) : (
                               <div className="px-3 py-2 space-y-1.5">
-                                {todosAbonos.map((ab, i) => (
-                                  <div key={i} className="rounded-xl px-3 py-2.5"
-                                    style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
-                                    {editandoAbonoId === ab.id ? (
-                                      <div className="flex items-center gap-2">
+                                {entradas.map((entrada, i) => entrada.tipo === 'grupo' ? (
+                                  /* Pago agrupado */
+                                  <div key={entrada.pagoId} className="rounded-xl overflow-hidden"
+                                    style={{ border: '1px solid rgba(184,149,106,0.3)' }}>
+                                    {/* Header del grupo */}
+                                    {editandoGrupoId === entrada.pagoId ? (
+                                      <div className="px-3 py-2.5 flex items-center gap-2"
+                                        style={{ backgroundColor: 'rgba(184,149,106,0.08)' }}>
                                         <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                                          style={{ backgroundColor: '#7D9B7E' }}>$</div>
-                                        <input
-                                          type="date"
-                                          value={editFechaAbono}
-                                          onChange={e => setEditFechaAbono(e.target.value)}
-                                          autoFocus
-                                          style={{ flex: 1, border: '1px solid #B8956A', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }}
-                                        />
+                                          style={{ backgroundColor: '#B8956A' }}>$</div>
+                                        <input type="date" value={editFechaGrupo} onChange={e => setEditFechaGrupo(e.target.value)}
+                                          style={{ flex: 1, border: '1px solid #B8956A', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
                                         <button onClick={async () => {
-                                          if (editFechaAbono) await updateAbono(ab.id, { created_at: new Date(editFechaAbono + 'T12:00:00').toISOString() });
-                                          setEditandoAbonoId(null);
-                                          cargar();
+                                          if (editFechaGrupo) {
+                                            const iso = new Date(editFechaGrupo + 'T12:00:00').toISOString();
+                                            await Promise.all(entrada.items.map(ab => updateAbono(ab.id, { created_at: iso })));
+                                          }
+                                          setEditandoGrupoId(null); cargar();
                                         }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
-                                        <button onClick={() => setEditandoAbonoId(null)}
+                                        <button onClick={() => setEditandoGrupoId(null)}
                                           style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
                                       </div>
                                     ) : (
-                                      <div className="flex items-center gap-3" onClick={() => { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); }} style={{ cursor: 'pointer' }}>
+                                      <div className="px-3 py-2.5 flex items-center gap-3"
+                                        style={{ backgroundColor: 'rgba(184,149,106,0.08)' }}>
                                         <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                                          style={{ backgroundColor: '#7D9B7E' }}>$</div>
-                                        <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
-                                          {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                          style={{ backgroundColor: '#B8956A' }}>$</div>
+                                        <div className="flex-1 min-w-0 cursor-pointer"
+                                          onClick={() => { setEditandoGrupoId(entrada.pagoId); setEditFechaGrupo(entrada.fecha.split('T')[0]); }}>
+                                          <div className="text-xs font-medium" style={{ color: '#9B7A4B' }}>
+                                            {new Date(entrada.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                          </div>
+                                          <div className="text-xs" style={{ color: '#B8956A' }}>
+                                            {entrada.items.length} productos liquidados
+                                          </div>
                                         </div>
-                                        <div className="text-base font-bold font-sans" style={{ color: '#7D9B7E' }}>
-                                          +${ab.monto.toLocaleString('es-MX')}
+                                        <div className="text-base font-bold font-sans shrink-0" style={{ color: '#B8956A' }}>
+                                          +${entrada.total.toLocaleString('es-MX')}
                                         </div>
+                                        <button onClick={() => setConfirmarEliminarGrupo({ pagoId: entrada.pagoId, items: entrada.items.map(ab => ({ id: ab.id, apartado_id: ab.apartado_id })) })}
+                                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                                          style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                                          ✕
+                                        </button>
+                                      </div>
+                                    )}
+                                    {/* Sub-items del grupo */}
+                                    {entrada.items.map(ab => (
+                                      <div key={ab.id} className="border-t"
+                                        style={{ borderColor: 'rgba(184,149,106,0.2)', backgroundColor: 'rgba(184,149,106,0.04)' }}>
+                                        {editandoAbonoId === ab.id ? (
+                                          <div className="px-3 py-2">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-4 shrink-0" />
+                                              <div className="relative shrink-0" style={{ width: '80px' }}>
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                                                <input type="number" value={editMontoAbono} onChange={e => { setEditMontoAbono(e.target.value); setErrorEditarAbono(''); }}
+                                                  autoFocus min="0.01" step="0.01"
+                                                  style={{ width: '100%', paddingLeft: '16px', paddingRight: '4px', paddingTop: '4px', paddingBottom: '4px', border: `1px solid ${errorEditarAbono ? '#DC2626' : '#B8956A'}`, borderRadius: 8, fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
+                                              </div>
+                                              <button onClick={async () => {
+                                                const m = parseFloat(editMontoAbono);
+                                                if (m > 0) {
+                                                  const ap = apartados.find(a => a.id === ab.apartado_id);
+                                                  const precio = ap?.articulos?.precio_total ?? 0;
+                                                  const otrosAbonos = (ap?.abonos ?? []).filter(a => a.id !== ab.id).reduce((s, a) => s + a.monto, 0);
+                                                  if (precio > 0 && otrosAbonos + m > precio) {
+                                                    setErrorEditarAbono(`No puede superar $${precio.toLocaleString('es-MX')}`);
+                                                    return;
+                                                  }
+                                                  await updateAbono(ab.id, { monto: m });
+                                                }
+                                                setEditandoAbonoId(null); setErrorEditarAbono(''); cargar();
+                                              }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                                              <button onClick={() => { setEditandoAbonoId(null); setErrorEditarAbono(''); }}
+                                                style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                                            </div>
+                                            {errorEditarAbono && <p className="text-xs mt-1 pl-6" style={{ color: '#DC2626' }}>{errorEditarAbono}</p>}
+                                          </div>
+                                        ) : (
+                                          <div className="px-3 py-2 flex items-center gap-2">
+                                            <div className="w-4 shrink-0" />
+                                            <div className="flex-1 text-xs truncate cursor-pointer" style={{ color: '#7A6A62' }}
+                                              onClick={() => { setEditandoAbonoId(ab.id); setEditMontoAbono(String(ab.monto)); setEditFechaAbono(ab.created_at.split('T')[0]); }}>
+                                              {ab.articulo}
+                                            </div>
+                                            <div className="text-xs font-semibold font-sans shrink-0" style={{ color: '#9B7A4B' }}>
+                                              ${ab.monto.toLocaleString('es-MX')}
+                                            </div>
+                                            <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
+                                              className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                                              style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                                              ✕
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  /* Abono individual */
+                                  <div key={i} className="rounded-xl px-3 py-2.5"
+                                    style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
+                                    {editandoAbonoId === entrada.ab.id ? (
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                                            style={{ backgroundColor: '#7D9B7E' }}>$</div>
+                                          <div className="relative shrink-0" style={{ width: '80px' }}>
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                                            <input type="number" value={editMontoAbono} onChange={e => { setEditMontoAbono(e.target.value); setErrorEditarAbono(''); }}
+                                              autoFocus min="0.01" step="0.01"
+                                              style={{ width: '100%', paddingLeft: '16px', paddingRight: '4px', paddingTop: '4px', paddingBottom: '4px', border: `1px solid ${errorEditarAbono ? '#DC2626' : '#B8956A'}`, borderRadius: 8, fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
+                                          </div>
+                                          <input type="date" value={editFechaAbono} onChange={e => setEditFechaAbono(e.target.value)}
+                                            style={{ flex: 1, border: '1px solid #B8956A', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
+                                          <button onClick={async () => {
+                                            const updates: { monto?: number; created_at?: string } = {};
+                                            const m = parseFloat(editMontoAbono);
+                                            if (m > 0) {
+                                              const ap = apartados.find(a => a.id === entrada.ab.apartado_id);
+                                              const precio = ap?.articulos?.precio_total ?? 0;
+                                              const otrosAbonos = (ap?.abonos ?? []).filter(a => a.id !== entrada.ab.id).reduce((s, a) => s + a.monto, 0);
+                                              if (precio > 0 && otrosAbonos + m > precio) {
+                                                setErrorEditarAbono(`No puede superar $${precio.toLocaleString('es-MX')}`);
+                                                return;
+                                              }
+                                              updates.monto = m;
+                                            }
+                                            if (editFechaAbono) updates.created_at = new Date(editFechaAbono + 'T12:00:00').toISOString();
+                                            if (Object.keys(updates).length) await updateAbono(entrada.ab.id, updates);
+                                            setEditandoAbonoId(null); setErrorEditarAbono(''); cargar();
+                                          }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
+                                          <button onClick={() => { setEditandoAbonoId(null); setErrorEditarAbono(''); }}
+                                            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                                        </div>
+                                        {errorEditarAbono && <p className="text-xs mt-1 pl-9" style={{ color: '#DC2626' }}>{errorEditarAbono}</p>}
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                          onClick={() => { setEditandoAbonoId(entrada.ab.id); setEditFechaAbono(entrada.ab.created_at.split('T')[0]); setEditMontoAbono(String(entrada.ab.monto)); }}>
+                                          <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                                            style={{ backgroundColor: '#7D9B7E' }}>$</div>
+                                          <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
+                                            {new Date(entrada.ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            {entrada.ab.articulo && <span className="ml-1.5 text-text-light">{entrada.ab.articulo}</span>}
+                                          </div>
+                                          <div className="text-base font-bold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
+                                            +${entrada.ab.monto.toLocaleString('es-MX')}
+                                          </div>
+                                        </div>
+                                        <button onClick={() => setConfirmarEliminarAbono({ abonoId: entrada.ab.id, apartadoId: entrada.ab.apartado_id })}
+                                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                                          style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                                          ✕
+                                        </button>
                                       </div>
                                     )}
                                   </div>
@@ -694,31 +901,88 @@ export default function Apartados() {
                         );
                       })()}
 
-                      {c.apartados.filter(ap => !ap.entregado).map(ap => {
+                      {c.apartados.filter(ap => !ap.entregado || (!!ap.entregado && ap.estado !== 'liquidado')).map(ap => {
                         const dias = diasRestantes(ap);
+                        const precio = ap.articulos?.precio_total ?? 0;
+                        const liquidarProducto = async () => {
+                          const now = new Date().toISOString();
+                          const pend = precio - totalAbonado(ap);
+                          if (pend > 0) {
+                            await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: pend, nota: 'LIQUIDACIÓN', created_at: now });
+                          }
+                          await updateApartado(ap.id, { estado: 'liquidado' });
+                          cargar();
+                        };
                         return (
-                          <div key={ap.id} className="border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
-                            <Link to={`/apartado/${ap.id}`} className="flex items-center justify-between px-4 py-3">
-                              <div className="text-sm font-medium text-text truncate flex-1 min-w-0 pr-2">
-                                {ap.articulos?.nombre}
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <div className="text-sm font-semibold" style={{ color: '#C4A49A' }}>
-                                  ${(ap.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
-                                </div>
-                                <div className="text-xs font-medium mt-0.5">
-                                  {ap.estado === 'liquidado' ? (
-                                    <span className="px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D' }}>✓ Liquidado</span>
-                                  ) : dias !== null ? (
-                                    <span style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
-                                      {dias <= 0 ? `⚠ ${Math.abs(dias)}d vencido` : `${dias}d`}
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: '#B8956A' }}>→</span>
-                                  )}
-                                </div>
-                              </div>
+                          <div key={ap.id} className="border-b last:border-0 flex items-center justify-between px-4 py-3 gap-2" style={{ borderColor: '#E8DDD0' }}>
+                            <Link to={`/apartado/${ap.id}`} className="text-sm font-medium text-text truncate flex-1 min-w-0 flex items-center gap-1.5">
+                              {ap.articulos?.nombre}
+                              {ap.entregado && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                                  style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.3)' }}>
+                                  Entregado
+                                </span>
+                              )}
                             </Link>
+                            <div className="shrink-0 flex flex-col items-end gap-0.5">
+                              <div className="text-sm font-semibold" style={{ color: '#C4A49A' }}>
+                                ${precio.toLocaleString('es-MX')}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                {ap.estado === 'liquidado' ? (
+                                  <button
+                                    onClick={() => updateApartado(ap.id, { estado: 'activo' }).then(cargar)}
+                                    className="text-xs px-2 py-0.5 rounded-full font-medium transition-all"
+                                    style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
+                                    title="Toca para deshacer liquidación">
+                                    ✓ Liquidado
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    {dias !== null && (
+                                      <span className="text-xs" style={{ color: dias <= 0 ? '#DC2626' : dias <= 3 ? '#C4A49A' : '#7A6A62' }}>
+                                        {dias <= 0 ? `⚠ ${Math.abs(dias)}d` : `${dias}d`}
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={liquidarProducto}
+                                      className="text-xs px-2 py-0.5 rounded-full font-semibold transition-all"
+                                      style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}>
+                                      Liquidar
+                                    </button>
+                                  </div>
+                                )}
+                                {ap.entregado ? (
+                                  <button
+                                    onClick={() => updateApartado(ap.id, { entregado: false }).then(cargar)}
+                                    className="text-xs px-2 py-0.5 rounded-full font-medium transition-all"
+                                    style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
+                                    title="Toca para deshacer entrega">
+                                    ✓ Entregado
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmarEntregar(ap.id)}
+                                    className="text-xs px-2 py-0.5 rounded-full font-medium transition-all"
+                                    style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.35)' }}>
+                                    📦 Entregar
+                                  </button>
+                                )}
+                                {ap.cliente_tel && (
+                                  <button
+                                    onClick={() => setWaApartado(ap)}
+                                    className="text-xs px-2 py-0.5 rounded-full font-medium transition-all flex items-center gap-1"
+                                    style={{ backgroundColor: 'rgba(37,211,102,0.12)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.35)' }}
+                                    title="Enviar WhatsApp al cliente">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                                      <path d="M12 0C5.373 0 0 5.373 0 12c0 2.132.558 4.136 1.532 5.875L0 24l6.29-1.508A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.657-.502-5.187-1.378l-.371-.22-3.736.895.938-3.63-.242-.384A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                                    </svg>
+                                    WhatsApp
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -730,6 +994,105 @@ export default function Apartados() {
           </div>
         )}
       </main>
+
+      {/* Modal: marcar como entregado */}
+      {confirmarEntregar && (() => {
+        const apAEntregar = apartados.find(ap => ap.id === confirmarEntregar);
+        const esLiq = apAEntregar?.estado === 'liquidado';
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">📦</span>
+                <h3 className="font-serif font-semibold text-text text-lg">¿Marcar como entregado?</h3>
+              </div>
+              <p className="text-sm text-text-light mb-5">
+                {esLiq
+                  ? 'El apartado pasará al historial y ya no aparecerá en activos.'
+                  : 'El apartado se marcará como entregado, pero seguirá en activos porque aún no se liquida.'}
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmarEntregar(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                  Cancelar
+                </button>
+                <button onClick={async () => {
+                  await updateApartado(confirmarEntregar, { entregado: true });
+                  setConfirmarEntregar(null);
+                  cargar();
+                }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal: eliminar grupo de abonos */}
+      {confirmarEliminarGrupo && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar pago completo?</h3>
+            <p className="text-sm text-text-light mb-5">Se eliminarán todos los abonos de este pago. Esta acción no se puede deshacer.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmarEliminarGrupo(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                Cancelar
+              </button>
+              <button onClick={async () => {
+                for (const { id: abonoId, apartado_id } of confirmarEliminarGrupo.items) {
+                  await deleteAbono(abonoId);
+                  const ap = apartados.find(a => a.id === apartado_id);
+                  if (ap?.estado === 'liquidado') {
+                    const nuevosAbonos = (ap.abonos ?? []).filter(a => a.id !== abonoId);
+                    const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
+                    if (nuevoTotal < (ap.articulos?.precio_total ?? 0)) {
+                      await updateApartado(apartado_id, { estado: 'activo' });
+                    }
+                  }
+                }
+                setConfirmarEliminarGrupo(null);
+                cargar();
+              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: eliminar abono */}
+      {confirmarEliminarAbono && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar abono?</h3>
+            <p className="text-sm text-text-light mb-5">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmarEliminarAbono(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                Cancelar
+              </button>
+              <button onClick={async () => {
+                const { abonoId, apartadoId } = confirmarEliminarAbono;
+                const ap = apartados.find(a => a.id === apartadoId);
+                await deleteAbono(abonoId);
+                if (ap?.estado === 'liquidado') {
+                  const nuevosAbonos = (ap.abonos ?? []).filter(a => a.id !== abonoId);
+                  const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
+                  if (nuevoTotal < (ap.articulos?.precio_total ?? 0)) {
+                    await updateApartado(apartadoId, { estado: 'activo' });
+                  }
+                }
+                setConfirmarEliminarAbono(null);
+                cargar();
+              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: artículos recién liquidados — definir lugar de entrega */}
       {recienLiquidados.length > 0 && (
@@ -795,6 +1158,86 @@ export default function Apartados() {
           </div>
         </div>
       )}
+
+      {/* Modal: Menú de mensajes de WhatsApp */}
+      {waApartado && (() => {
+        const cliente = waApartado.cliente_nombre;
+        const producto = waApartado.articulos?.nombre ?? 'artículo';
+        const precio = waApartado.articulos?.precio_total ?? 0;
+        const totalAb = (waApartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+        const pend = precio - totalAb;
+        const dias = diasRestantes(waApartado);
+        const lugar = waApartado.lugar_entrega ? ` en *${waApartado.lugar_entrega}*` : '';
+
+        // Plantillas de mensajes
+        const mensajeRecordatorio = `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *${producto}*. El precio es de $${precio.toLocaleString('es-MX')} y actualmente tienes un saldo pendiente de $${pend.toLocaleString('es-MX')}. ¡Que tengas un lindo día!`;
+        
+        const mensajeVencimiento = dias !== null
+          ? (dias <= 0 
+            ? `Hola ${cliente}, te escribo de Shulalá Boutique para avisarte que tu apartado de *${producto}* venció hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}. Por favor, contáctanos para liquidarlo y evitar que se cancele. ¡Gracias!`
+            : `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *${producto}* está por vencer en ${dias} día${dias !== 1 ? 's' : ''}. Te sugerimos liquidarlo pronto para que puedas recogerlo. ¡Saludos!`)
+          : `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *${producto}* está por vencer. Te sugerimos pasar a liquidarlo pronto. ¡Saludos!`;
+
+        const mensajeListo = `Hola ${cliente}, te escribo de Shulalá Boutique para avisarte que tu pedido de *${producto}* ya está listo para recoger${lugar}. ¡Esperamos verte pronto!`;
+
+        const enviarMensaje = (texto: string) => {
+          const tel = waApartado.cliente_tel?.replace(/\D/g, '') ?? '';
+          const url = `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`;
+          window.open(url, '_blank');
+          setWaApartado(null);
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up space-y-4" style={{ border: '1px solid #E8DDD0' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">💬</span>
+                <h3 className="font-serif font-semibold text-text text-lg">Mensaje para {cliente}</h3>
+              </div>
+              <p className="text-xs text-text-light">
+                Selecciona una plantilla para enviar por WhatsApp sobre el artículo: <strong className="text-text">{producto}</strong>.
+              </p>
+              
+              <div className="space-y-2">
+                <button
+                  onClick={() => enviarMensaje(mensajeRecordatorio)}
+                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
+                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
+                  <span className="font-bold text-text-light">💰 Recordatorio de Pago</span>
+                  <span className="text-text leading-tight line-clamp-2">"Hola {cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *${producto}*... saldo pendiente..."</span>
+                </button>
+
+                <button
+                  onClick={() => enviarMensaje(mensajeVencimiento)}
+                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
+                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
+                  <span className="font-bold text-text-light">🗓️ Recordatorio de Vencimiento</span>
+                  <span className="text-text leading-tight line-clamp-2">
+                    {dias !== null && dias <= 0
+                      ? `"Hola ${cliente}, tu apartado venció hace ${Math.abs(dias)} días..."`
+                      : `"Hola ${cliente}, tu apartado está por vencer..."`}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => enviarMensaje(mensajeListo)}
+                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
+                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
+                  <span className="font-bold text-text-light">📦 Listo para Recoger</span>
+                  <span className="text-text leading-tight line-clamp-2">"Hola {cliente}, tu pedido de *${producto}* ya está listo para recoger..."</span>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setWaApartado(null)}
+                className="w-full py-2.5 rounded-xl text-sm text-text-light hover:bg-cream transition-all font-medium border bg-white"
+                style={{ borderColor: '#E8DDD0' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
