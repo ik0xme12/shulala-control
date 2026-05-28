@@ -51,11 +51,9 @@ export default function Apartados() {
   const [editMontoAbono, setEditMontoAbono] = useState('');
   const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string } | null>(null);
   const [errorAbonoRapido, setErrorAbonoRapido] = useState('');
-  const [editandoGrupoId, setEditandoGrupoId] = useState<string | null>(null);
-  const [editFechaGrupo, setEditFechaGrupo] = useState('');
-  const [confirmarEliminarGrupo, setConfirmarEliminarGrupo] = useState<{ pagoId: string; items: { id: string; apartado_id: string }[] } | null>(null);
   const [errorEditarAbono, setErrorEditarAbono] = useState('');
   const [confirmarEntregar, setConfirmarEntregar] = useState<string | null>(null);
+  const [confirmarLiquidar, setConfirmarLiquidar] = useState<{ apId: string; nombre: string; falta: number; sinLugar: boolean } | null>(null);
   const [waApartado, setWaApartado] = useState<Apartado | null>(null);
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
@@ -196,9 +194,9 @@ export default function Apartados() {
   };
 
   const registrarAbonoCliente = async (c: ResumenCliente) => {
-    let restante = parseFloat(montoRapido);
-    if (!restante || restante <= 0) return;
-    if (restante > c.pendiente) {
+    const monto = parseFloat(montoRapido);
+    if (!monto || monto <= 0) return;
+    if (monto > c.pendiente) {
       setErrorAbonoRapido(`El monto supera la deuda total ($${c.pendiente.toLocaleString('es-MX')})`);
       return;
     }
@@ -206,30 +204,11 @@ export default function Apartados() {
     const now = fechaAbonoRapido
       ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
       : new Date().toISOString();
-    const apsConPendiente = [...c.apartados]
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-      .filter(ap => pendiente(ap) > 0);
-    const pagoId = apsConPendiente.length > 1 ? crypto.randomUUID() : null;
-    const nuevosLiquidados: { id: string; nombre: string }[] = [];
-    for (const ap of apsConPendiente) {
-      if (restante <= 0) break;
-      const pend = pendiente(ap);
-      const abonoEste = Math.min(restante, pend);
-      await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: abonoEste, nota: '', created_at: now, pago_id: pagoId });
-      if (totalAbonado(ap) + abonoEste >= (ap.articulos?.precio_total ?? 0)) {
-        await updateApartado(ap.id, { estado: 'liquidado' });
-        if (!ap.lugar_entrega) {
-          nuevosLiquidados.push({ id: ap.id, nombre: ap.articulos?.nombre ?? '' });
-        }
-      }
-      restante -= abonoEste;
-    }
+    const primerApartado = [...c.apartados].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+    await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: '', created_at: now });
     setAbonoClienteKey(null);
     setMontoRapido('');
-    if (nuevosLiquidados.length > 0) {
-      setRecienLiquidados(nuevosLiquidados);
-      setLugarEntregaRapido('');
-    }
+    setFechaAbonoRapido('');
     cargar();
   };
 
@@ -692,34 +671,9 @@ export default function Apartados() {
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
                         const todosAbonos = c.apartados
-                          .flatMap(ap => (ap.abonos ?? []).map(ab => ({ ...ab, articulo: ap.articulos?.nombre ?? '' })))
+                          .flatMap(ap => (ap.abonos ?? []))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
-
-                        // Agrupar por pago_id
-                        type AbonoPanel = typeof todosAbonos[number];
-                        type Entrada =
-                          | { tipo: 'individual'; ab: AbonoPanel }
-                          | { tipo: 'grupo'; pagoId: string; total: number; fecha: string; items: AbonoPanel[] };
-                        const grupos = new Map<string, AbonoPanel[]>();
-                        const entradas: Entrada[] = [];
-                        for (const ab of todosAbonos) {
-                          if (ab.pago_id) {
-                            if (!grupos.has(ab.pago_id)) grupos.set(ab.pago_id, []);
-                            grupos.get(ab.pago_id)!.push(ab);
-                          } else {
-                            entradas.push({ tipo: 'individual', ab });
-                          }
-                        }
-                        for (const [pagoId, items] of grupos) {
-                          entradas.push({ tipo: 'grupo', pagoId, total: items.reduce((s, ab) => s + ab.monto, 0), fecha: items[0].created_at, items });
-                        }
-                        entradas.sort((a, b) => {
-                          const fa = a.tipo === 'individual' ? a.ab.created_at : a.fecha;
-                          const fb = b.tipo === 'individual' ? b.ab.created_at : b.fecha;
-                          return new Date(fb).getTime() - new Date(fa).getTime();
-                        });
-
                         return (
                           <div className="animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
                             <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'rgba(125,155,126,0.06)', borderBottom: '1px solid #E8DDD0' }}>
@@ -730,114 +684,14 @@ export default function Apartados() {
                                 Total: ${totalAbonos.toLocaleString('es-MX')}
                               </span>
                             </div>
-                            {entradas.length === 0 ? (
+                            {todosAbonos.length === 0 ? (
                               <p className="text-xs text-center py-4 font-serif" style={{ color: '#7A6A62' }}>Sin abonos registrados</p>
                             ) : (
                               <div className="px-3 py-2 space-y-1.5">
-                                {entradas.map((entrada, i) => entrada.tipo === 'grupo' ? (
-                                  /* Pago agrupado */
-                                  <div key={entrada.pagoId} className="rounded-xl overflow-hidden"
-                                    style={{ border: '1px solid rgba(184,149,106,0.3)' }}>
-                                    {/* Header del grupo */}
-                                    {editandoGrupoId === entrada.pagoId ? (
-                                      <div className="px-3 py-2.5 flex items-center gap-2"
-                                        style={{ backgroundColor: 'rgba(184,149,106,0.08)' }}>
-                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                                          style={{ backgroundColor: '#B8956A' }}>$</div>
-                                        <input type="date" value={editFechaGrupo} onChange={e => setEditFechaGrupo(e.target.value)}
-                                          style={{ flex: 1, border: '1px solid #B8956A', borderRadius: 8, padding: '4px 8px', fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
-                                        <button onClick={async () => {
-                                          if (editFechaGrupo) {
-                                            const iso = new Date(editFechaGrupo + 'T12:00:00').toISOString();
-                                            await Promise.all(entrada.items.map(ab => updateAbono(ab.id, { created_at: iso })));
-                                          }
-                                          setEditandoGrupoId(null); cargar();
-                                        }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
-                                        <button onClick={() => setEditandoGrupoId(null)}
-                                          style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
-                                      </div>
-                                    ) : (
-                                      <div className="px-3 py-2.5 flex items-center gap-3"
-                                        style={{ backgroundColor: 'rgba(184,149,106,0.08)' }}>
-                                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                                          style={{ backgroundColor: '#B8956A' }}>$</div>
-                                        <div className="flex-1 min-w-0 cursor-pointer"
-                                          onClick={() => { setEditandoGrupoId(entrada.pagoId); setEditFechaGrupo(entrada.fecha.split('T')[0]); }}>
-                                          <div className="text-xs font-medium" style={{ color: '#9B7A4B' }}>
-                                            {new Date(entrada.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                          </div>
-                                          <div className="text-xs" style={{ color: '#B8956A' }}>
-                                            {entrada.items.length} productos liquidados
-                                          </div>
-                                        </div>
-                                        <div className="text-base font-bold font-sans shrink-0" style={{ color: '#B8956A' }}>
-                                          +${entrada.total.toLocaleString('es-MX')}
-                                        </div>
-                                        <button onClick={() => setConfirmarEliminarGrupo({ pagoId: entrada.pagoId, items: entrada.items.map(ab => ({ id: ab.id, apartado_id: ab.apartado_id })) })}
-                                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
-                                          style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
-                                          ✕
-                                        </button>
-                                      </div>
-                                    )}
-                                    {/* Sub-items del grupo */}
-                                    {entrada.items.map(ab => (
-                                      <div key={ab.id} className="border-t"
-                                        style={{ borderColor: 'rgba(184,149,106,0.2)', backgroundColor: 'rgba(184,149,106,0.04)' }}>
-                                        {editandoAbonoId === ab.id ? (
-                                          <div className="px-3 py-2">
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-4 shrink-0" />
-                                              <div className="relative shrink-0" style={{ width: '80px' }}>
-                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
-                                                <input type="number" value={editMontoAbono} onChange={e => { setEditMontoAbono(e.target.value); setErrorEditarAbono(''); }}
-                                                  autoFocus min="0.01" step="0.01"
-                                                  style={{ width: '100%', paddingLeft: '16px', paddingRight: '4px', paddingTop: '4px', paddingBottom: '4px', border: `1px solid ${errorEditarAbono ? '#DC2626' : '#B8956A'}`, borderRadius: 8, fontSize: 12, fontFamily: 'Jost, system-ui, sans-serif', color: '#2C2422', backgroundColor: 'white' }} />
-                                              </div>
-                                              <button onClick={async () => {
-                                                const m = parseFloat(editMontoAbono);
-                                                if (m > 0) {
-                                                  const ap = apartados.find(a => a.id === ab.apartado_id);
-                                                  const precio = ap?.articulos?.precio_total ?? 0;
-                                                  const otrosAbonos = (ap?.abonos ?? []).filter(a => a.id !== ab.id).reduce((s, a) => s + a.monto, 0);
-                                                  if (precio > 0 && otrosAbonos + m > precio) {
-                                                    setErrorEditarAbono(`No puede superar $${precio.toLocaleString('es-MX')}`);
-                                                    return;
-                                                  }
-                                                  await updateAbono(ab.id, { monto: m });
-                                                }
-                                                setEditandoAbonoId(null); setErrorEditarAbono(''); cargar();
-                                              }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
-                                              <button onClick={() => { setEditandoAbonoId(null); setErrorEditarAbono(''); }}
-                                                style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #E8DDD0', backgroundColor: 'white', color: '#7A6A62', fontSize: 12, cursor: 'pointer' }}>✕</button>
-                                            </div>
-                                            {errorEditarAbono && <p className="text-xs mt-1 pl-6" style={{ color: '#DC2626' }}>{errorEditarAbono}</p>}
-                                          </div>
-                                        ) : (
-                                          <div className="px-3 py-2 flex items-center gap-2">
-                                            <div className="w-4 shrink-0" />
-                                            <div className="flex-1 text-xs truncate cursor-pointer" style={{ color: '#7A6A62' }}
-                                              onClick={() => { setEditandoAbonoId(ab.id); setEditMontoAbono(String(ab.monto)); setEditFechaAbono(ab.created_at.split('T')[0]); }}>
-                                              {ab.articulo}
-                                            </div>
-                                            <div className="text-xs font-semibold font-sans shrink-0" style={{ color: '#9B7A4B' }}>
-                                              ${ab.monto.toLocaleString('es-MX')}
-                                            </div>
-                                            <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
-                                              className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold transition-all"
-                                              style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
-                                              ✕
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  /* Abono individual */
-                                  <div key={i} className="rounded-xl px-3 py-2.5"
+                                {todosAbonos.map(ab => (
+                                  <div key={ab.id} className="rounded-xl px-3 py-2.5"
                                     style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
-                                    {editandoAbonoId === entrada.ab.id ? (
+                                    {editandoAbonoId === ab.id ? (
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
@@ -853,18 +707,9 @@ export default function Apartados() {
                                           <button onClick={async () => {
                                             const updates: { monto?: number; created_at?: string } = {};
                                             const m = parseFloat(editMontoAbono);
-                                            if (m > 0) {
-                                              const ap = apartados.find(a => a.id === entrada.ab.apartado_id);
-                                              const precio = ap?.articulos?.precio_total ?? 0;
-                                              const otrosAbonos = (ap?.abonos ?? []).filter(a => a.id !== entrada.ab.id).reduce((s, a) => s + a.monto, 0);
-                                              if (precio > 0 && otrosAbonos + m > precio) {
-                                                setErrorEditarAbono(`No puede superar $${precio.toLocaleString('es-MX')}`);
-                                                return;
-                                              }
-                                              updates.monto = m;
-                                            }
+                                            if (m > 0) updates.monto = m;
                                             if (editFechaAbono) updates.created_at = new Date(editFechaAbono + 'T12:00:00').toISOString();
-                                            if (Object.keys(updates).length) await updateAbono(entrada.ab.id, updates);
+                                            if (Object.keys(updates).length) await updateAbono(ab.id, updates);
                                             setEditandoAbonoId(null); setErrorEditarAbono(''); cargar();
                                           }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
                                           <button onClick={() => { setEditandoAbonoId(null); setErrorEditarAbono(''); }}
@@ -875,18 +720,17 @@ export default function Apartados() {
                                     ) : (
                                       <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                          onClick={() => { setEditandoAbonoId(entrada.ab.id); setEditFechaAbono(entrada.ab.created_at.split('T')[0]); setEditMontoAbono(String(entrada.ab.monto)); }}>
+                                          onClick={() => { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); setEditMontoAbono(String(ab.monto)); }}>
                                           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
                                             style={{ backgroundColor: '#7D9B7E' }}>$</div>
                                           <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
-                                            {new Date(entrada.ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            {entrada.ab.articulo && <span className="ml-1.5 text-text-light">{entrada.ab.articulo}</span>}
+                                            {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                                           </div>
                                           <div className="text-base font-bold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
-                                            +${entrada.ab.monto.toLocaleString('es-MX')}
+                                            +${ab.monto.toLocaleString('es-MX')}
                                           </div>
                                         </div>
-                                        <button onClick={() => setConfirmarEliminarAbono({ abonoId: entrada.ab.id, apartadoId: entrada.ab.apartado_id })}
+                                        <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
                                           className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
                                           style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
                                           ✕
@@ -904,14 +748,18 @@ export default function Apartados() {
                       {c.apartados.filter(ap => !ap.entregado || (!!ap.entregado && ap.estado !== 'liquidado')).map(ap => {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
-                        const liquidarProducto = async () => {
-                          const now = new Date().toISOString();
-                          const pend = precio - totalAbonado(ap);
-                          if (pend > 0) {
-                            await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: pend, nota: 'LIQUIDACIÓN', created_at: now });
+                        const liquidarProducto = () => {
+                          if (c.pendiente > 0) {
+                            setConfirmarLiquidar({ apId: ap.id, nombre: ap.articulos?.nombre ?? '', falta: c.pendiente, sinLugar: !ap.lugar_entrega });
+                            return;
                           }
-                          await updateApartado(ap.id, { estado: 'liquidado' });
-                          cargar();
+                          updateApartado(ap.id, { estado: 'liquidado' }).then(() => {
+                            if (!ap.lugar_entrega) {
+                              setRecienLiquidados([{ id: ap.id, nombre: ap.articulos?.nombre ?? '' }]);
+                              setLugarEntregaRapido('');
+                            }
+                            cargar();
+                          });
                         };
                         return (
                           <div key={ap.id} className="border-b last:border-0 flex items-center justify-between px-4 py-3 gap-2" style={{ borderColor: '#E8DDD0' }}>
@@ -1029,33 +877,33 @@ export default function Apartados() {
         );
       })()}
 
-      {/* Modal: eliminar grupo de abonos */}
-      {confirmarEliminarGrupo && (
+      {/* Modal: liquidar con saldo pendiente */}
+      {confirmarLiquidar && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
-            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar pago completo?</h3>
-            <p className="text-sm text-text-light mb-5">Se eliminarán todos los abonos de este pago. Esta acción no se puede deshacer.</p>
+            <h3 className="font-serif font-semibold text-text text-lg mb-1">¿Liquidar artículo?</h3>
+            <p className="text-sm font-medium text-text mb-3">{confirmarLiquidar.nombre}</p>
+            <div className="rounded-xl p-3 mb-5 flex items-start gap-2" style={{ backgroundColor: 'rgba(196,164,154,0.1)', border: '1px solid rgba(196,164,154,0.35)' }}>
+              <span className="text-sm shrink-0">⚠</span>
+              <p className="text-sm" style={{ color: '#9B6B5A' }}>
+                Falta <strong>${confirmarLiquidar.falta.toLocaleString('es-MX')}</strong> para cubrir el total del cliente. ¿Deseas liquidar este artículo de todas formas?
+              </p>
+            </div>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmarEliminarGrupo(null)}
+              <button onClick={() => setConfirmarLiquidar(null)}
                 className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
                 Cancelar
               </button>
               <button onClick={async () => {
-                for (const { id: abonoId, apartado_id } of confirmarEliminarGrupo.items) {
-                  await deleteAbono(abonoId);
-                  const ap = apartados.find(a => a.id === apartado_id);
-                  if (ap?.estado === 'liquidado') {
-                    const nuevosAbonos = (ap.abonos ?? []).filter(a => a.id !== abonoId);
-                    const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
-                    if (nuevoTotal < (ap.articulos?.precio_total ?? 0)) {
-                      await updateApartado(apartado_id, { estado: 'activo' });
-                    }
-                  }
+                await updateApartado(confirmarLiquidar.apId, { estado: 'liquidado' });
+                if (confirmarLiquidar.sinLugar) {
+                  setRecienLiquidados([{ id: confirmarLiquidar.apId, nombre: confirmarLiquidar.nombre }]);
+                  setLugarEntregaRapido('');
                 }
-                setConfirmarEliminarGrupo(null);
+                setConfirmarLiquidar(null);
                 cargar();
-              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
-                Eliminar
+              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                Liquidar
               </button>
             </div>
           </div>
@@ -1074,16 +922,7 @@ export default function Apartados() {
                 Cancelar
               </button>
               <button onClick={async () => {
-                const { abonoId, apartadoId } = confirmarEliminarAbono;
-                const ap = apartados.find(a => a.id === apartadoId);
-                await deleteAbono(abonoId);
-                if (ap?.estado === 'liquidado') {
-                  const nuevosAbonos = (ap.abonos ?? []).filter(a => a.id !== abonoId);
-                  const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
-                  if (nuevoTotal < (ap.articulos?.precio_total ?? 0)) {
-                    await updateApartado(apartadoId, { estado: 'activo' });
-                  }
-                }
+                await deleteAbono(confirmarEliminarAbono.abonoId);
                 setConfirmarEliminarAbono(null);
                 cargar();
               }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>

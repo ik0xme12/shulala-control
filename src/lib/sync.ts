@@ -23,6 +23,12 @@ export async function pullAll() {
       db.articulos, db.apartados, db.abonos,
       db.tanda, db.tanda_participantes, db.tanda_pagos,
     ], async () => {
+      await db.articulos.clear();
+      await db.apartados.clear();
+      await db.abonos.clear();
+      await db.tanda.clear();
+      await db.tanda_participantes.clear();
+      await db.tanda_pagos.clear();
       if (articulos?.length) await db.articulos.bulkPut(articulos);
       if (apartados?.length) await db.apartados.bulkPut(apartados);
       if (abonos?.length) await db.abonos.bulkPut(abonos);

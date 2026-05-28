@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { pullAll, syncOnReconnect } from './lib/sync';
+import { pullAll, syncOnReconnect, flushQueue } from './lib/sync';
 import { SyncContext } from './lib/SyncContext';
 import Dashboard from './pages/Dashboard';
 import Apartados from './pages/Apartados';
@@ -16,13 +16,31 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
-      if (navigator.onLine) await pullAll();
+      if (navigator.onLine) {
+        await flushQueue();
+        await pullAll();
+      }
       setSyncReady(true);
     };
     init();
 
+    // Sincronizar cada 30 segundos si hay conexión
+    const interval = setInterval(() => {
+      if (navigator.onLine) pullAll();
+    }, 30_000);
+
+    // Sincronizar cuando la pestaña vuelve a estar visible
+    const onVisible = () => {
+      if (!document.hidden && navigator.onLine) pullAll();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     window.addEventListener('online', syncOnReconnect);
-    return () => window.removeEventListener('online', syncOnReconnect);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', syncOnReconnect);
+    };
   }, []);
 
   return (
