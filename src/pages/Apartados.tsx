@@ -55,6 +55,7 @@ export default function Apartados() {
   const [confirmarEntregar, setConfirmarEntregar] = useState<string | null>(null);
   const [confirmarLiquidar, setConfirmarLiquidar] = useState<{ apId: string; nombre: string; falta: number; sinLugar: boolean } | null>(null);
   const [waApartado, setWaApartado] = useState<Apartado | null>(null);
+  const [waPreviewId, setWaPreviewId] = useState<string | null>(null);
   const syncReady = useSyncReady();
   const prevFiltroVista = useRef({ filtro, vista });
 
@@ -1003,76 +1004,81 @@ export default function Apartados() {
         const cliente = waApartado.cliente_nombre;
         const producto = waApartado.articulos?.nombre ?? 'artículo';
         const precio = waApartado.articulos?.precio_total ?? 0;
-        const totalAb = (waApartado.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-        const pend = precio - totalAb;
-        const dias = diasRestantes(waApartado);
         const lugar = waApartado.lugar_entrega ? ` en *${waApartado.lugar_entrega}*` : '';
+        const clienteRes = resumenClientes.find(c => c.nombre === waApartado.cliente_nombre);
+        const clientePendiente = clienteRes?.pendiente ?? pendiente(waApartado);
+        const clienteAbonado = (clienteRes?.total ?? 0) - clientePendiente;
 
-        // Plantillas de mensajes
-        const mensajeRecordatorio = `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *${producto}*. El precio es de $${precio.toLocaleString('es-MX')} y actualmente tienes un saldo pendiente de $${pend.toLocaleString('es-MX')}. ¡Que tengas un lindo día!`;
-        
-        const mensajeVencimiento = dias !== null
-          ? (dias <= 0 
-            ? `Hola ${cliente}, te escribo de Shulalá Boutique para avisarte que tu apartado de *${producto}* venció hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}. Por favor, contáctanos para liquidarlo y evitar que se cancele. ¡Gracias!`
-            : `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *${producto}* está por vencer en ${dias} día${dias !== 1 ? 's' : ''}. Te sugerimos liquidarlo pronto para que puedas recogerlo. ¡Saludos!`)
-          : `Hola ${cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *${producto}* está por vencer. Te sugerimos pasar a liquidarlo pronto. ¡Saludos!`;
+        const templates: { id: string; emoji: string; titulo: string; cuerpo: string }[] = (() => {
+          try { const s = localStorage.getItem('wa_templates_shulala'); if (s) return JSON.parse(s); } catch {}
+          return [
+            { id: 'recordatorio_pago', emoji: '💰', titulo: 'Recordatorio de Pago', cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *{producto}*. El precio es de ${precio} y actualmente tienes un saldo pendiente de ${pendiente}. ¡Que tengas un lindo día!' },
+            { id: 'recordatorio_vencimiento', emoji: '🗓️', titulo: 'Recordatorio de Vencimiento', cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *{producto}* está por vencer. Te sugerimos liquidarlo pronto para que puedas recogerlo. ¡Saludos!' },
+            { id: 'listo_recoger', emoji: '📦', titulo: 'Listo para Recoger', cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para avisarte que tu pedido de *{producto}* ya está listo para recoger{lugar}. ¡Esperamos verte pronto!' },
+            { id: 'aviso_un_mes', emoji: '📅', titulo: 'Aviso de 1 Mes', cuerpo: 'Hola! ¿Cómo estás? Te escribo de Shulalá Boutique para saludarte y comentarte que mañana se cumple el mes de tu apartado.\n\nTienes un abono de ${abonado} y queda un pendiente de ${pendiente}. Te aviso con tiempo para que no vayas a perder tu anticipo ni tu prenda, ya que el sistema libera los artículos automáticamente al mes.\n¡Aún estás a tiempo de liquidarlo para que pase a ser tuyo!' },
+            { id: 'seguimiento_quincenal', emoji: '📆', titulo: 'Seguimiento Quincenal', cuerpo: 'Hola, {cliente}! ¿Cómo estás? Te saludamos de Shulalá Boutique. 🌸\nEsperamos que estés teniendo una excelente semana. Solo pasábamos a saludarte y darte un breve seguimiento a tu apartado. Como sabes, hacemos corte cada quincena y queríamos comentarte que te quedan 15 días para finalizar tu pago con toda tranquilidad.\nRecuerda que estamos a tus órdenes por cualquier duda. ¡Seguimos al pendiente de ti!' },
+          ];
+        })();
 
-        const mensajeListo = `Hola ${cliente}, te escribo de Shulalá Boutique para avisarte que tu pedido de *${producto}* ya está listo para recoger${lugar}. ¡Esperamos verte pronto!`;
+        const interpolar = (cuerpo: string) => cuerpo
+          .replace(/\{cliente\}/g, cliente)
+          .replace(/\{producto\}/g, producto)
+          .replace(/\{precio\}/g, precio.toLocaleString('es-MX'))
+          .replace(/\{pendiente\}/g, clientePendiente.toLocaleString('es-MX'))
+          .replace(/\{abonado\}/g, clienteAbonado.toLocaleString('es-MX'))
+          .replace(/\{lugar\}/g, lugar);
 
-        const enviarMensaje = (texto: string) => {
+        const enviar = (cuerpo: string) => {
           const tel = waApartado.cliente_tel?.replace(/\D/g, '') ?? '';
-          const url = `https://wa.me/${tel}?text=${encodeURIComponent(texto)}`;
-          window.open(url, '_blank');
-          setWaApartado(null);
+          window.open(`https://wa.me/${tel}?text=${encodeURIComponent(interpolar(cuerpo))}`, '_blank');
+          setWaApartado(null); setWaPreviewId(null);
         };
 
         return (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up space-y-4" style={{ border: '1px solid #E8DDD0' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">💬</span>
-                <h3 className="font-serif font-semibold text-text text-lg">Mensaje para {cliente}</h3>
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm animate-slide-up flex flex-col"
+              style={{ border: '1px solid #E8DDD0', maxHeight: '82vh' }}>
+              <div className="px-5 pt-5 pb-3 shrink-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">💬</span>
+                  <h3 className="font-serif font-semibold text-text text-lg">Mensaje para {cliente}</h3>
+                </div>
+                <p className="text-xs text-text-light">
+                  Toca para enviar · <span style={{ color: '#B8956A' }}>👁</span> vista previa
+                </p>
               </div>
-              <p className="text-xs text-text-light">
-                Selecciona una plantilla para enviar por WhatsApp sobre el artículo: <strong className="text-text">{producto}</strong>.
-              </p>
-              
-              <div className="space-y-2">
-                <button
-                  onClick={() => enviarMensaje(mensajeRecordatorio)}
-                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
-                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
-                  <span className="font-bold text-text-light">💰 Recordatorio de Pago</span>
-                  <span className="text-text leading-tight line-clamp-2">"Hola {cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *${producto}*... saldo pendiente..."</span>
-                </button>
-
-                <button
-                  onClick={() => enviarMensaje(mensajeVencimiento)}
-                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
-                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
-                  <span className="font-bold text-text-light">🗓️ Recordatorio de Vencimiento</span>
-                  <span className="text-text leading-tight line-clamp-2">
-                    {dias !== null && dias <= 0
-                      ? `"Hola ${cliente}, tu apartado venció hace ${Math.abs(dias)} días..."`
-                      : `"Hola ${cliente}, tu apartado está por vencer..."`}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => enviarMensaje(mensajeListo)}
-                  className="w-full text-left p-3 rounded-xl text-xs border hover:bg-cream transition-all flex flex-col gap-1"
-                  style={{ borderColor: '#E8DDD0', backgroundColor: 'white' }}>
-                  <span className="font-bold text-text-light">📦 Listo para Recoger</span>
-                  <span className="text-text leading-tight line-clamp-2">"Hola {cliente}, tu pedido de *${producto}* ya está listo para recoger..."</span>
+              <div className="overflow-y-auto flex-1 px-4 space-y-2 pb-2">
+                {templates.map(t => (
+                  <div key={t.id}>
+                    <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+                      <button onClick={() => enviar(t.cuerpo)} className="flex-1 text-left p-3 hover:bg-cream transition-all min-w-0">
+                        <div className="text-xs font-bold" style={{ color: '#7A6A62' }}>{t.emoji} {t.titulo}</div>
+                        <div className="text-xs mt-0.5 truncate" style={{ color: '#2C2422' }}>
+                          {interpolar(t.cuerpo).split('\n')[0]}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setWaPreviewId(waPreviewId === t.id ? null : t.id)}
+                        className="px-3 flex items-center text-sm shrink-0 transition-colors"
+                        style={{ color: waPreviewId === t.id ? '#B8956A' : '#C4A49A', borderLeft: '1px solid #E8DDD0' }}
+                        title="Vista previa">👁</button>
+                    </div>
+                    {waPreviewId === t.id && (
+                      <div className="mt-1 p-3 rounded-xl text-xs leading-relaxed whitespace-pre-wrap animate-fade-in"
+                        style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.2)', color: '#2C2422' }}>
+                        {interpolar(t.cuerpo)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="px-4 py-4 shrink-0" style={{ borderTop: '1px solid #E8DDD0' }}>
+                <button onClick={() => { setWaApartado(null); setWaPreviewId(null); }}
+                  className="w-full py-2.5 rounded-xl text-sm text-text-light font-medium border bg-white hover:bg-cream transition-all"
+                  style={{ borderColor: '#E8DDD0' }}>
+                  Cancelar
                 </button>
               </div>
-
-              <button
-                onClick={() => setWaApartado(null)}
-                className="w-full py-2.5 rounded-xl text-sm text-text-light hover:bg-cream transition-all font-medium border bg-white"
-                style={{ borderColor: '#E8DDD0' }}>
-                Cancelar
-              </button>
             </div>
           </div>
         );

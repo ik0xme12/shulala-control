@@ -1,25 +1,32 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { type Apartado, type Abono } from '../lib/supabase';
-import { getApartado, getApartadosFull, updateApartado, updateArticulo, insertAbono, updateAbono, deleteAbono, deleteApartado } from '../lib/dataService';
+import { type Apartado } from '../lib/supabase';
+import { getApartado, getApartadosFull, updateApartado, updateArticulo, deleteApartado } from '../lib/dataService';
 import Header from '../components/Header';
+
+type WaTemplate = { id: string; emoji: string; titulo: string; cuerpo: string; esDefault?: boolean };
+
+const WA_TEMPLATES_DEFAULT: WaTemplate[] = [
+  { id: 'recordatorio_pago', emoji: '💰', titulo: 'Recordatorio de Pago', esDefault: true,
+    cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para recordarte tu apartado de *{producto}*. El precio es de ${precio} y actualmente tienes un saldo pendiente de ${pendiente}. ¡Que tengas un lindo día!' },
+  { id: 'recordatorio_vencimiento', emoji: '🗓️', titulo: 'Recordatorio de Vencimiento', esDefault: true,
+    cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para recordarte que tu apartado de *{producto}* está por vencer. Te sugerimos liquidarlo pronto para que puedas recogerlo. ¡Saludos!' },
+  { id: 'listo_recoger', emoji: '📦', titulo: 'Listo para Recoger', esDefault: true,
+    cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para avisarte que tu pedido de *{producto}* ya está listo para recoger{lugar}. ¡Esperamos verte pronto!' },
+  { id: 'aviso_un_mes', emoji: '📅', titulo: 'Aviso de 1 Mes', esDefault: true,
+    cuerpo: 'Hola! ¿Cómo estás? Te escribo de Shulalá Boutique para saludarte y comentarte que mañana se cumple el mes de tu apartado.\n\nTienes un abono de ${abonado} y queda un pendiente de ${pendiente}. Te aviso con tiempo para que no vayas a perder tu anticipo ni tu prenda, ya que el sistema libera los artículos automáticamente al mes.\n¡Aún estás a tiempo de liquidarlo para que pase a ser tuyo!' },
+  { id: 'seguimiento_quincenal', emoji: '📆', titulo: 'Seguimiento Quincenal', esDefault: true,
+    cuerpo: 'Hola, {cliente}! ¿Cómo estás? Te saludamos de Shulalá Boutique. 🌸\nEsperamos que estés teniendo una excelente semana. Solo pasábamos a saludarte y darte un breve seguimiento a tu apartado. Como sabes, hacemos corte cada quincena y queríamos comentarte que te quedan 15 días para finalizar tu pago con toda tranquilidad.\nRecuerda que estamos a tus órdenes por cualquier duda. ¡Seguimos al pendiente de ti!' },
+];
+
+const WA_STORAGE_KEY = 'wa_templates_shulala';
 
 export default function DetalleApartado() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [apartado, setApartado] = useState<Apartado | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [montoAbono, setMontoAbono] = useState('');
-  const [notaAbono, setNotaAbono] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState('');
-  const [confirmarLiquidar, setConfirmarLiquidar] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState(false);
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [editMonto, setEditMonto] = useState('');
-  const [editNota, setEditNota] = useState('');
-  const [editFecha, setEditFecha] = useState('');
-  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<string | null>(null);
   const [editandoLugar, setEditandoLugar] = useState(false);
   const [nuevoLugar, setNuevoLugar] = useState('');
   const [lugaresDisponibles, setLugaresDisponibles] = useState<string[]>([]);
@@ -33,11 +40,32 @@ export default function DetalleApartado() {
   const [nuevoNombreArticulo, setNuevoNombreArticulo] = useState('');
   const [editandoPrecio, setEditandoPrecio] = useState(false);
   const [nuevoPrecio, setNuevoPrecio] = useState('');
-  const [confirmarFinalizar, setConfirmarFinalizar] = useState(false);
+  const [clientePendiente, setClientePendiente] = useState(0);
+  const [clienteAbonado, setClienteAbonado] = useState(0);
+  const [confirmarLiquidar, setConfirmarLiquidar] = useState<{ falta: number } | null>(null);
+  const [confirmarEntregar, setConfirmarEntregar] = useState(false);
+  const [waVisible, setWaVisible] = useState(false);
+  const [waTemplates, setWaTemplates] = useState<WaTemplate[]>(() => {
+    try { const s = localStorage.getItem(WA_STORAGE_KEY); if (s) return JSON.parse(s); } catch {}
+    return WA_TEMPLATES_DEFAULT;
+  });
+  const [waPreviewId, setWaPreviewId] = useState<string | null>(null);
+  const [waEditandoId, setWaEditandoId] = useState<string | null>(null);
+  const [waEditForm, setWaEditForm] = useState({ emoji: '', titulo: '', cuerpo: '' });
+  const [waAgregando, setWaAgregando] = useState(false);
+  const [waNuevoForm, setWaNuevoForm] = useState({ emoji: '', titulo: '', cuerpo: '' });
 
   const cargar = async () => {
     const data = await getApartado(id!);
     setApartado(data);
+    if (data) {
+      const todos = await getApartadosFull();
+      const deCliente = todos.filter(ap => ap.cliente_nombre === data.cliente_nombre && !ap.entregado);
+      const totalCliente = deCliente.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
+      const abonadoCliente = deCliente.flatMap(ap => ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+      setClientePendiente(totalCliente - abonadoCliente);
+      setClienteAbonado(abonadoCliente);
+    }
     setCargando(false);
   };
 
@@ -53,73 +81,20 @@ export default function DetalleApartado() {
   }, []);
 
 
-  const totalAbonado = (ap: Apartado) =>
-    (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-
-  const agregarAbono = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const monto = parseFloat(montoAbono);
-    if (!monto || monto <= 0) { setError('Ingresa un monto válido'); return; }
-    const pendiente = (apartado?.articulos?.precio_total ?? 0) - totalAbonado(apartado!);
-    if (monto > pendiente) { setError(`Máximo $${pendiente.toLocaleString('es-MX')}`); return; }
-    setGuardando(true); setError('');
-    const now = new Date().toISOString();
-    await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto, nota: notaAbono.toUpperCase(), created_at: now });
-    const nuevoTotal = totalAbonado(apartado!) + monto;
-    if (nuevoTotal >= (apartado?.articulos?.precio_total ?? 0)) {
-      await updateApartado(id!, { estado: 'liquidado' });
+  const liquidar = () => {
+    if (clientePendiente > 0) {
+      setConfirmarLiquidar({ falta: clientePendiente });
+      return;
     }
-    setMontoAbono(''); setNotaAbono(''); setGuardando(false);
-    cargar();
+    updateApartado(id!, { estado: 'liquidado' }).then(cargar);
   };
 
-  const liquidar = async () => {
-    const pend = (apartado!.articulos?.precio_total ?? 0) - totalAbonado(apartado!);
-    if (pend > 0) {
-      await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto: pend, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
-    }
-    await updateApartado(id!, { estado: 'liquidado' });
-    setConfirmarLiquidar(false);
-    cargar();
-  };
-
-  const guardarEdicion = async (abono: Abono) => {
-    const monto = parseFloat(editMonto);
-    if (!monto || monto <= 0) return;
-    const otrosAbonos = (apartado!.abonos ?? [])
-      .filter(a => a.id !== abono.id)
-      .reduce((s, a) => s + a.monto, 0);
-    const precio = apartado!.articulos?.precio_total ?? 0;
-    const maxPermitido = precio - otrosAbonos;
-    if (monto > maxPermitido) { setError(`Máximo $${maxPermitido.toLocaleString('es-MX')}`); return; }
-    const nuevaFecha = editFecha ? new Date(editFecha + 'T12:00:00').toISOString() : abono.created_at;
-    await updateAbono(abono.id, { monto, nota: editNota.toUpperCase() || undefined, created_at: nuevaFecha });
-    const nuevoTotal = otrosAbonos + monto;
-    if (nuevoTotal >= precio && apartado!.estado !== 'liquidado') {
-      await updateApartado(id!, { estado: 'liquidado' });
-    } else if (nuevoTotal < precio && apartado!.estado === 'liquidado') {
-      await updateApartado(id!, { estado: 'activo' });
-    }
-    setEditandoId(null);
-    setError('');
-    cargar();
-  };
-
-  const eliminarAbono = async (abonoId: string) => {
-    await deleteAbono(abonoId);
-    const nuevosAbonos = (apartado!.abonos ?? []).filter(a => a.id !== abonoId);
-    const nuevoTotal = nuevosAbonos.reduce((s, a) => s + a.monto, 0);
-    if (nuevoTotal < (apartado!.articulos?.precio_total ?? 0) && apartado!.estado === 'liquidado') {
-      await updateApartado(id!, { estado: 'activo' });
-    }
-    setEditandoId(null);
-    cargar();
-  };
-
-  const finalizar = async () => {
+  const entregar = async () => {
+    const esLiq = apartado?.estado === 'liquidado';
     await updateApartado(id!, { entregado: true });
-    setConfirmarFinalizar(false);
-    navigate('/apartados');
+    setConfirmarEntregar(false);
+    if (esLiq) navigate('/apartados');
+    else cargar();
   };
 
   const eliminar = async () => {
@@ -192,17 +167,7 @@ export default function DetalleApartado() {
     </div>
   );
 
-  const precio = apartado.articulos?.precio_total ?? 0;
-  const abonado = totalAbonado(apartado);
-  const pendiente = precio - abonado;
-  const pct = precio > 0 ? Math.min(100, Math.round((abonado / precio) * 100)) : 0;
   const liquidado = apartado.estado === 'liquidado';
-  const abonosOrdenados = [...(apartado.abonos ?? [])].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-
-  const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
-  const inputFocusStyle = { borderColor: '#B8956A' };
 
   return (
     <div className="min-h-screen bg-cream">
@@ -249,9 +214,42 @@ export default function DetalleApartado() {
             </div>
           ) : (
             <div className="flex items-center justify-between gap-2 mb-4">
-              <h2 className="font-serif font-semibold text-text text-base leading-tight">
-                {apartado.articulos?.nombre ?? '—'}
-              </h2>
+              <div>
+                <h2 className="font-serif font-semibold text-text text-base leading-tight">
+                  {apartado.articulos?.nombre ?? '—'}
+                </h2>
+                {editandoPrecio ? (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                      <input
+                        type="number" value={nuevoPrecio}
+                        onChange={e => setNuevoPrecio(e.target.value)}
+                        min="0.01" step="0.01" autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') guardarPrecio(); if (e.key === 'Escape') setEditandoPrecio(false); }}
+                        className="pl-5 pr-2 py-1 rounded-lg text-sm text-text focus:outline-none"
+                        style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '100px' }} />
+                    </div>
+                    <button onClick={guardarPrecio}
+                      className="text-xs px-2 py-1 rounded-lg text-white font-medium"
+                      style={{ backgroundColor: '#7D9B7E' }}>✓</button>
+                    <button onClick={() => setEditandoPrecio(false)}
+                      className="text-xs px-2 py-1 rounded-lg"
+                      style={{ border: '1px solid #E8DDD0', color: '#7A6A62' }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-sans font-bold text-lg" style={{ color: '#B8956A' }}>
+                      ${(apartado.articulos?.precio_total ?? 0).toLocaleString('es-MX')}
+                    </span>
+                    <button
+                      onClick={() => { setEditandoPrecio(true); setNuevoPrecio((apartado.articulos?.precio_total ?? '').toString()); }}
+                      className="text-base transition-colors"
+                      style={{ color: '#B8956A' }}
+                      title="Editar precio">✎</button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => { setEditandoArticulo(true); setNuevoNombreArticulo(apartado.articulos?.nombre ?? ''); }}
                 className="text-base shrink-0 transition-colors"
@@ -455,229 +453,80 @@ export default function DetalleApartado() {
             )}
           </div>
 
-          {/* Barra de progreso */}
-          <div className="mt-4">
-            <div className="flex justify-between mb-2">
-              <span className="text-xs tracking-widest uppercase text-text-light">Progreso</span>
-              <span className="text-sm font-semibold" style={{ color: '#B8956A' }}>{pct}%</span>
-            </div>
-            <div className="rounded-full h-2.5" style={{ backgroundColor: '#E8DDD0' }}>
-              <div className="rounded-full h-2.5 transition-all"
-                style={{ width: `${pct}%`, backgroundColor: pct === 100 ? '#7D9B7E' : '#B8956A' }} />
-            </div>
-          </div>
+        </div>
 
-          {/* Montos */}
-          <div className="mt-3 flex items-baseline justify-between">
+        {/* Acciones */}
+        <div className="bg-white rounded-2xl p-4" style={{ border: '1px solid #E8DDD0' }}>
+          <div className="flex gap-2">
             {liquidado ? (
               <button
                 onClick={() => updateApartado(id!, { estado: 'activo' }).then(cargar)}
-                className="text-xs font-medium px-2.5 py-1 rounded-full transition-all"
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all"
                 style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
                 title="Toca para deshacer liquidación">
-                ✓ Liquidado · ${precio.toLocaleString('es-MX')}
+                ✓ Liquidado
               </button>
             ) : (
-              <>
-                <div>
-                  <span className="font-sans font-bold text-xl" style={{ color: '#2C2422' }}>
-                    ${pendiente.toLocaleString('es-MX')}
-                  </span>
-                  <span className="text-xs text-text-light ml-1.5">pendiente</span>
-                </div>
-                {editandoPrecio ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
-                      <input
-                        type="number" value={nuevoPrecio}
-                        onChange={e => setNuevoPrecio(e.target.value)}
-                        min="0.01" step="0.01" autoFocus
-                        onKeyDown={e => { if (e.key === 'Enter') guardarPrecio(); if (e.key === 'Escape') setEditandoPrecio(false); }}
-                        className="pl-5 pr-2 py-1 rounded-lg text-xs text-text focus:outline-none"
-                        style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '90px' }} />
-                    </div>
-                    <button onClick={() => setEditandoPrecio(false)}
-                      className="text-xs px-2 py-1 rounded-lg text-text-light"
-                      style={{ border: '1px solid #E8DDD0' }}>Cancelar</button>
-                    <button onClick={guardarPrecio}
-                      className="text-xs px-2 py-1 rounded-lg text-white font-medium"
-                      style={{ backgroundColor: '#7D9B7E' }}>Guardar</button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-text-light">
-                      abonado ${abonado.toLocaleString('es-MX')} de ${precio.toLocaleString('es-MX')}
-                    </span>
-                    <button
-                      onClick={() => { setEditandoPrecio(true); setNuevoPrecio(precio.toString()); }}
-                      className="text-base transition-colors"
-                      style={{ color: '#B8956A' }}
-                      title="Editar precio">
-                      ✎
-                    </button>
-                  </div>
-                )}
-              </>
+              <button
+                onClick={liquidar}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}>
+                Liquidar
+              </button>
+            )}
+            {apartado.entregado ? (
+              <button
+                onClick={() => updateApartado(id!, { entregado: false }).then(cargar)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all"
+                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
+                title="Toca para deshacer entrega">
+                ✓ Entregado
+              </button>
+            ) : (
+              <button
+                onClick={() => setConfirmarEntregar(true)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all"
+                style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.35)' }}>
+                📦 Entregar
+              </button>
+            )}
+            {apartado.cliente_tel && (
+              <button
+                onClick={() => setWaVisible(true)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1"
+                style={{ backgroundColor: 'rgba(37,211,102,0.12)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.35)' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.132.558 4.136 1.532 5.875L0 24l6.29-1.508A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.657-.502-5.187-1.378l-.371-.22-3.736.895.938-3.63-.242-.384A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                </svg>
+                WhatsApp
+              </button>
             )}
           </div>
         </div>
 
-        {/* Marcar como entregado */}
-        {liquidado && !apartado.entregado && (
-          <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">📦</span>
-              <h3 className="font-serif font-semibold text-text tracking-wide">Entrega del artículo</h3>
-            </div>
-            <p className="text-sm text-text-light mb-4">El pago está completo. Confirma cuando el artículo haya sido entregado al cliente.</p>
-            <button onClick={() => setConfirmarFinalizar(true)}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white tracking-widest uppercase transition-all"
-              style={{ backgroundColor: '#7D9B7E' }}>
-              Marcar como entregado
-            </button>
-          </div>
-        )}
 
-        {/* Agregar abono */}
-        {!liquidado && (
-          <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">💰</span>
-              <h3 className="font-serif font-semibold text-text tracking-wide">Registrar abono</h3>
-            </div>
-            <form onSubmit={agregarAbono} className="space-y-3">
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
-                <input type="number" value={montoAbono} onChange={e => setMontoAbono(e.target.value)}
-                  placeholder={`Máx. $${pendiente.toLocaleString('es-MX')}`}
-                  min="0.01" step="0.01" required
-                  className="w-full rounded-xl pl-8 pr-4 py-2.5 text-text text-sm focus:outline-none"
-                  style={inputStyle}
-                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
-              </div>
-              <input type="text" value={notaAbono} onChange={e => setNotaAbono(e.target.value)}
-                placeholder="Nota (opcional)"
-                className="w-full rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none uppercase"
-                style={inputStyle}
-                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)} />
-              {error && <p className="text-sm" style={{ color: '#DC2626' }}>{error}</p>}
-              <button type="submit" disabled={guardando}
-                className="w-full py-3 rounded-xl font-semibold text-sm text-white tracking-widest uppercase transition-all disabled:opacity-60"
-                style={{ backgroundColor: '#7D9B7E' }}>
-                {guardando ? 'Guardando...' : 'Registrar Abono'}
-              </button>
-            </form>
-
-            {pendiente > 0 && (
-              <button onClick={() => setConfirmarLiquidar(true)}
-                className="w-full mt-2 py-2.5 rounded-xl font-medium text-sm tracking-wide transition-all"
-                style={{ border: '1px solid #B8956A', color: '#B8956A' }}>
-                Marcar como liquidado
-              </button>
-            )}
-          </div>
-        )}
-
-
-        {/* Historial abonos */}
-        <div className="bg-white rounded-2xl p-5" style={{ border: '1px solid #E8DDD0' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">📋</span>
-            <h3 className="font-serif font-semibold text-text tracking-wide">Historial de abonos</h3>
-          </div>
-          {abonosOrdenados.length === 0 ? (
-            <p className="text-sm text-text-light text-center py-4 font-serif">Sin abonos registrados</p>
-          ) : (
-            <div className="space-y-2">
-              {abonosOrdenados.map((abono: Abono, i) => (
-                <div key={abono.id} className="rounded-xl p-3 animate-fade-in" style={{ backgroundColor: '#F5F0E8' }}>
-                  {editandoId === abono.id ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
-                          style={{ backgroundColor: '#B8956A' }}>
-                          {abonosOrdenados.length - i}
-                        </div>
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
-                          <input type="number" value={editMonto} onChange={e => setEditMonto(e.target.value)}
-                            className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none bg-white"
-                            style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif' }} />
-                        </div>
-                        <input type="date" value={editFecha} onChange={e => setEditFecha(e.target.value)}
-                          className="py-2 px-2 rounded-lg text-xs focus:outline-none bg-white shrink-0"
-                          style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', width: '130px', color: '#2C2422' }} />
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={() => { setEditandoId(null); setError(''); }}
-                          className="flex-1 py-2 rounded-lg text-xs text-text-light bg-white"
-                          style={{ border: '1px solid #E8DDD0' }}>
-                          Cancelar
-                        </button>
-                        <button onClick={() => guardarEdicion(abono)}
-                          className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
-                          style={{ backgroundColor: '#7D9B7E' }}>
-                          Guardar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white font-medium shrink-0"
-                        style={{ backgroundColor: '#B8956A' }}>
-                        {abonosOrdenados.length - i}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="font-sans font-semibold text-sm text-text">
-                          ${abono.monto.toLocaleString('es-MX')}
-                        </span>
-                        {abono.nota && (
-                          <span className="text-xs text-text-light ml-2">{abono.nota}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-xs text-text-light">
-                          {new Date(abono.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
-                        </span>
-                        <button
-                          onClick={() => { setEditandoId(abono.id); setEditMonto(abono.monto.toString()); setEditNota(abono.nota ?? ''); setEditFecha(abono.created_at.split('T')[0]); }}
-                          className="text-base transition-colors"
-                          style={{ color: '#7D9B7E' }}
-                          title="Editar abono">
-                          ✎
-                        </button>
-                        <button
-                          onClick={() => setConfirmarEliminarAbono(abono.id)}
-                          className="text-base transition-colors"
-                          style={{ color: '#C4A49A' }}
-                          title="Eliminar abono">
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </main>
 
-      {/* Modal finalizar */}
-      {confirmarFinalizar && (
+      {/* Modal entregar */}
+      {confirmarEntregar && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
-            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Marcar como entregado?</h3>
-            <p className="text-sm text-text-light mb-5">El apartado pasará al historial con la etiqueta "Finalizado" y ya no aparecerá en la lista de activos.</p>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📦</span>
+              <h3 className="font-serif font-semibold text-text text-lg">¿Marcar como entregado?</h3>
+            </div>
+            <p className="text-sm text-text-light mb-5">
+              {liquidado
+                ? 'El apartado pasará al historial y ya no aparecerá en activos.'
+                : 'El apartado se marcará como entregado, pero seguirá en activos porque aún no se liquida.'}
+            </p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmarFinalizar(false)}
+              <button onClick={() => setConfirmarEntregar(false)}
                 className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
                 Cancelar
               </button>
-              <button onClick={finalizar}
+              <button onClick={entregar}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
                 Confirmar
               </button>
@@ -686,45 +535,194 @@ export default function DetalleApartado() {
         </div>
       )}
 
-      {/* Modal liquidar */}
+      {/* Modal liquidar con saldo pendiente */}
       {confirmarLiquidar && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
-            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Marcar como liquidado?</h3>
-            <p className="text-sm text-text-light mb-5">El apartado quedará marcado como pagado. Podrás entregarlo después para que pase al historial.</p>
+            <h3 className="font-serif font-semibold text-text text-lg mb-1">¿Liquidar artículo?</h3>
+            <p className="text-sm font-medium text-text mb-3">{apartado?.articulos?.nombre}</p>
+            <div className="rounded-xl p-3 mb-5 flex items-start gap-2" style={{ backgroundColor: 'rgba(196,164,154,0.1)', border: '1px solid rgba(196,164,154,0.35)' }}>
+              <span className="text-sm shrink-0">⚠</span>
+              <p className="text-sm" style={{ color: '#9B6B5A' }}>
+                Falta <strong>${confirmarLiquidar.falta.toLocaleString('es-MX')}</strong> para cubrir el total del cliente. ¿Deseas liquidar este artículo de todas formas?
+              </p>
+            </div>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmarLiquidar(false)}
+              <button onClick={() => setConfirmarLiquidar(null)}
                 className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
                 Cancelar
               </button>
-              <button onClick={liquidar}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
-                Confirmar
+              <button onClick={async () => {
+                await updateApartado(id!, { estado: 'liquidado' });
+                setConfirmarLiquidar(null);
+                cargar();
+              }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                Liquidar
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal eliminar abono */}
-      {confirmarEliminarAbono && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
-            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar abono?</h3>
-            <p className="text-sm text-text-light mb-5">Esta acción no se puede deshacer.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirmarEliminarAbono(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
-                Cancelar
-              </button>
-              <button onClick={() => { eliminarAbono(confirmarEliminarAbono); setConfirmarEliminarAbono(null); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
-                Eliminar
-              </button>
+      {/* Modal WhatsApp */}
+      {waVisible && apartado && (() => {
+        const cliente = apartado.cliente_nombre;
+        const producto = apartado.articulos?.nombre ?? 'artículo';
+        const precio = apartado.articulos?.precio_total ?? 0;
+        const lugar = apartado.lugar_entrega ? ` en *${apartado.lugar_entrega}*` : '';
+
+        const interpolar = (cuerpo: string) => cuerpo
+          .replace(/\{cliente\}/g, cliente)
+          .replace(/\{producto\}/g, producto)
+          .replace(/\{precio\}/g, precio.toLocaleString('es-MX'))
+          .replace(/\{pendiente\}/g, clientePendiente.toLocaleString('es-MX'))
+          .replace(/\{abonado\}/g, clienteAbonado.toLocaleString('es-MX'))
+          .replace(/\{lugar\}/g, lugar);
+
+        const enviar = (cuerpo: string) => {
+          const tel = apartado.cliente_tel?.replace(/\D/g, '') ?? '';
+          window.open(`https://wa.me/${tel}?text=${encodeURIComponent(interpolar(cuerpo))}`, '_blank');
+          setWaVisible(false); setWaPreviewId(null); setWaEditandoId(null); setWaAgregando(false);
+        };
+
+        const guardarTemplates = (updated: WaTemplate[]) => {
+          setWaTemplates(updated);
+          localStorage.setItem(WA_STORAGE_KEY, JSON.stringify(updated));
+        };
+
+        const inputStyle: React.CSSProperties = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', backgroundColor: 'white' };
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm animate-slide-up flex flex-col" style={{ border: '1px solid #E8DDD0', maxHeight: '82vh' }}>
+
+              {/* Header */}
+              <div className="px-5 pt-5 pb-3 shrink-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">💬</span>
+                  <h3 className="font-serif font-semibold text-text text-lg">Mensaje para {cliente}</h3>
+                </div>
+                <p className="text-xs text-text-light">
+                  Toca para enviar · <span style={{ color: '#B8956A' }}>👁</span> vista previa · <span style={{ color: '#B8956A' }}>✎</span> editar
+                </p>
+              </div>
+
+              {/* Lista scrollable */}
+              <div className="overflow-y-auto flex-1 px-4 space-y-2 pb-2">
+                {waTemplates.map(t => (
+                  <div key={t.id}>
+                    {waEditandoId === t.id ? (
+                      <div className="rounded-xl p-3 space-y-2 animate-fade-in" style={{ border: '1px solid #B8956A', backgroundColor: 'rgba(184,149,106,0.05)' }}>
+                        <div className="flex gap-2">
+                          <input value={waEditForm.emoji} onChange={e => setWaEditForm(f => ({ ...f, emoji: e.target.value }))}
+                            className="w-12 text-center rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                            style={inputStyle} placeholder="🏷" maxLength={4} />
+                          <input value={waEditForm.titulo} onChange={e => setWaEditForm(f => ({ ...f, titulo: e.target.value }))}
+                            className="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+                            style={inputStyle} placeholder="Nombre del mensaje" />
+                        </div>
+                        <textarea value={waEditForm.cuerpo} onChange={e => setWaEditForm(f => ({ ...f, cuerpo: e.target.value }))}
+                          rows={5} className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
+                          style={inputStyle}
+                          placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}" />
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setWaEditandoId(null)}
+                            className="flex-1 py-1.5 rounded-lg text-xs text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                            Cancelar
+                          </button>
+                          {!t.esDefault && (
+                            <button onClick={() => { guardarTemplates(waTemplates.filter(x => x.id !== t.id)); setWaEditandoId(null); }}
+                              className="px-3 py-1.5 rounded-lg text-xs" style={{ color: '#DC2626', border: '1px solid #FECACA' }}>
+                              Borrar
+                            </button>
+                          )}
+                          <button onClick={() => {
+                            guardarTemplates(waTemplates.map(x => x.id === t.id ? { ...x, ...waEditForm } : x));
+                            setWaEditandoId(null);
+                          }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                            Guardar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E8DDD0' }}>
+                          <button onClick={() => enviar(t.cuerpo)} className="flex-1 text-left p-3 hover:bg-cream transition-all min-w-0">
+                            <div className="text-xs font-bold" style={{ color: '#7A6A62' }}>{t.emoji} {t.titulo}</div>
+                            <div className="text-xs mt-0.5 truncate" style={{ color: '#2C2422' }}>
+                              {interpolar(t.cuerpo).split('\n')[0]}
+                            </div>
+                          </button>
+                          <button onClick={() => setWaPreviewId(waPreviewId === t.id ? null : t.id)}
+                            className="px-3 flex items-center text-sm shrink-0 transition-colors"
+                            style={{ color: waPreviewId === t.id ? '#B8956A' : '#C4A49A', borderLeft: '1px solid #E8DDD0' }}
+                            title="Vista previa">👁</button>
+                          <button onClick={() => { setWaEditandoId(t.id); setWaEditForm({ emoji: t.emoji, titulo: t.titulo, cuerpo: t.cuerpo }); setWaPreviewId(null); }}
+                            className="px-3 flex items-center text-sm shrink-0 transition-colors"
+                            style={{ color: '#C4A49A', borderLeft: '1px solid #E8DDD0' }}
+                            title="Editar">✎</button>
+                        </div>
+                        {waPreviewId === t.id && (
+                          <div className="mt-1 p-3 rounded-xl text-xs leading-relaxed whitespace-pre-wrap animate-fade-in"
+                            style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.2)', color: '#2C2422' }}>
+                            {interpolar(t.cuerpo)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Formulario agregar */}
+                {waAgregando ? (
+                  <div className="rounded-xl p-3 space-y-2 animate-fade-in" style={{ border: '1px solid #B8956A', backgroundColor: 'rgba(184,149,106,0.05)' }}>
+                    <div className="flex gap-2">
+                      <input value={waNuevoForm.emoji} onChange={e => setWaNuevoForm(f => ({ ...f, emoji: e.target.value }))}
+                        className="w-12 text-center rounded-lg px-2 py-1.5 text-sm focus:outline-none"
+                        style={inputStyle} placeholder="🏷" maxLength={4} />
+                      <input value={waNuevoForm.titulo} onChange={e => setWaNuevoForm(f => ({ ...f, titulo: e.target.value }))}
+                        autoFocus className="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+                        style={inputStyle} placeholder="Nombre del mensaje" />
+                    </div>
+                    <textarea value={waNuevoForm.cuerpo} onChange={e => setWaNuevoForm(f => ({ ...f, cuerpo: e.target.value }))}
+                      rows={5} className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
+                      style={inputStyle}
+                      placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}" />
+                    <div className="flex gap-1.5">
+                      <button onClick={() => { setWaAgregando(false); setWaNuevoForm({ emoji: '', titulo: '', cuerpo: '' }); }}
+                        className="flex-1 py-1.5 rounded-lg text-xs text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                        Cancelar
+                      </button>
+                      <button onClick={() => {
+                        if (!waNuevoForm.titulo.trim() || !waNuevoForm.cuerpo.trim()) return;
+                        guardarTemplates([...waTemplates, { id: crypto.randomUUID(), ...waNuevoForm }]);
+                        setWaAgregando(false); setWaNuevoForm({ emoji: '', titulo: '', cuerpo: '' });
+                      }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setWaAgregando(true)}
+                    className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                    style={{ border: '1px dashed #B8956A', color: '#B8956A' }}>
+                    + Agregar mensaje
+                  </button>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-4 shrink-0" style={{ borderTop: '1px solid #E8DDD0' }}>
+                <button onClick={() => { setWaVisible(false); setWaPreviewId(null); setWaEditandoId(null); setWaAgregando(false); }}
+                  className="w-full py-2.5 rounded-xl text-sm text-text-light font-medium border bg-white hover:bg-cream transition-all"
+                  style={{ borderColor: '#E8DDD0' }}>
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal eliminar */}
       {confirmarEliminar && (
