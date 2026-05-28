@@ -1020,13 +1020,21 @@ export default function Apartados() {
           ];
         })();
 
+        const diasNum = diasRestantes(waApartado);
+        const diasTexto = diasNum === null
+          ? 'no tienes fecha límite'
+          : diasNum <= 0
+            ? `tu apartado venció hace ${Math.abs(diasNum)} día${Math.abs(diasNum) !== 1 ? 's' : ''}`
+            : `te quedan ${diasNum} día${diasNum !== 1 ? 's' : ''}`;
+
         const interpolar = (cuerpo: string) => cuerpo
           .replace(/\{cliente\}/g, cliente)
           .replace(/\{producto\}/g, producto)
           .replace(/\{precio\}/g, precio.toLocaleString('es-MX'))
           .replace(/\{pendiente\}/g, clientePendiente.toLocaleString('es-MX'))
           .replace(/\{abonado\}/g, clienteAbonado.toLocaleString('es-MX'))
-          .replace(/\{lugar\}/g, lugar);
+          .replace(/\{lugar\}/g, lugar)
+          .replace(/\{diasTexto\}/g, diasTexto);
 
         const enviar = (cuerpo: string) => {
           const tel = waApartado.cliente_tel?.replace(/\D/g, '') ?? '';

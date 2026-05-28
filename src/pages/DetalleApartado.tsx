@@ -17,6 +17,8 @@ const WA_TEMPLATES_DEFAULT: WaTemplate[] = [
     cuerpo: 'Hola! ¿Cómo estás? Te escribo de Shulalá Boutique para saludarte y comentarte que mañana se cumple el mes de tu apartado.\n\nTienes un abono de ${abonado} y queda un pendiente de ${pendiente}. Te aviso con tiempo para que no vayas a perder tu anticipo ni tu prenda, ya que el sistema libera los artículos automáticamente al mes.\n¡Aún estás a tiempo de liquidarlo para que pase a ser tuyo!' },
   { id: 'seguimiento_quincenal', emoji: '📆', titulo: 'Seguimiento Quincenal', esDefault: true,
     cuerpo: 'Hola, {cliente}! ¿Cómo estás? Te saludamos de Shulalá Boutique. 🌸\nEsperamos que estés teniendo una excelente semana. Solo pasábamos a saludarte y darte un breve seguimiento a tu apartado. Como sabes, hacemos corte cada quincena y queríamos comentarte que te quedan 15 días para finalizar tu pago con toda tranquilidad.\nRecuerda que estamos a tus órdenes por cualquier duda. ¡Seguimos al pendiente de ti!' },
+  { id: 'aviso_dias', emoji: '⏰', titulo: 'Aviso de Días Restantes', esDefault: true,
+    cuerpo: 'Hola {cliente}, te escribo de Shulalá Boutique para avisarte que {diasTexto} para liquidar tu apartado de *{producto}*.\n\nRecuerda que tienes un saldo pendiente de ${pendiente}. ¡No lo dejes para después, aún estás a tiempo de asegurar tu prenda!' },
 ];
 
 const WA_STORAGE_KEY = 'wa_templates_shulala';
@@ -570,6 +572,17 @@ export default function DetalleApartado() {
         const producto = apartado.articulos?.nombre ?? 'artículo';
         const precio = apartado.articulos?.precio_total ?? 0;
         const lugar = apartado.lugar_entrega ? ` en *${apartado.lugar_entrega}*` : '';
+        const diasNum = (() => {
+          if (!apartado.dias_limite) return null;
+          const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+          const creado = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
+          return apartado.dias_limite - Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
+        })();
+        const diasTexto = diasNum === null
+          ? 'no tienes fecha límite'
+          : diasNum <= 0
+            ? `tu apartado venció hace ${Math.abs(diasNum)} día${Math.abs(diasNum) !== 1 ? 's' : ''}`
+            : `te quedan ${diasNum} día${diasNum !== 1 ? 's' : ''}`;
 
         const interpolar = (cuerpo: string) => cuerpo
           .replace(/\{cliente\}/g, cliente)
@@ -577,7 +590,8 @@ export default function DetalleApartado() {
           .replace(/\{precio\}/g, precio.toLocaleString('es-MX'))
           .replace(/\{pendiente\}/g, clientePendiente.toLocaleString('es-MX'))
           .replace(/\{abonado\}/g, clienteAbonado.toLocaleString('es-MX'))
-          .replace(/\{lugar\}/g, lugar);
+          .replace(/\{lugar\}/g, lugar)
+          .replace(/\{diasTexto\}/g, diasTexto);
 
         const enviar = (cuerpo: string) => {
           const tel = apartado.cliente_tel?.replace(/\D/g, '') ?? '';
