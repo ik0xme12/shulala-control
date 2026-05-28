@@ -630,12 +630,6 @@ export default function DetalleApartado() {
                             className="flex-1 py-1.5 rounded-lg text-xs text-text-light" style={{ border: '1px solid #E8DDD0' }}>
                             Cancelar
                           </button>
-                          {!t.esDefault && (
-                            <button onClick={() => { guardarTemplates(waTemplates.filter(x => x.id !== t.id)); setWaEditandoId(null); }}
-                              className="px-3 py-1.5 rounded-lg text-xs" style={{ color: '#DC2626', border: '1px solid #FECACA' }}>
-                              Borrar
-                            </button>
-                          )}
                           <button onClick={() => {
                             guardarTemplates(waTemplates.map(x => x.id === t.id ? { ...x, ...waEditForm } : x));
                             setWaEditandoId(null);
@@ -661,6 +655,10 @@ export default function DetalleApartado() {
                             className="px-3 flex items-center text-sm shrink-0 transition-colors"
                             style={{ color: '#C4A49A', borderLeft: '1px solid #E8DDD0' }}
                             title="Editar">✎</button>
+                          <button onClick={() => { guardarTemplates(waTemplates.filter(x => x.id !== t.id)); setWaPreviewId(null); }}
+                            className="px-3 flex items-center text-sm shrink-0 transition-colors"
+                            style={{ color: '#DC2626', borderLeft: '1px solid #E8DDD0' }}
+                            title="Eliminar">✕</button>
                         </div>
                         {waPreviewId === t.id && (
                           <div className="mt-1 p-3 rounded-xl text-xs leading-relaxed whitespace-pre-wrap animate-fade-in"
