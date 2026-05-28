@@ -639,7 +639,7 @@ export default function DetalleApartado() {
                         <textarea value={waEditForm.cuerpo} onChange={e => setWaEditForm(f => ({ ...f, cuerpo: e.target.value }))}
                           rows={5} className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
                           style={inputStyle}
-                          placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}" />
+                          placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}, {diasTexto}, {dias}" />
                         <div className="flex gap-1.5">
                           <button onClick={() => setWaEditandoId(null)}
                             className="flex-1 py-1.5 rounded-lg text-xs text-text-light" style={{ border: '1px solid #E8DDD0' }}>
@@ -700,7 +700,7 @@ export default function DetalleApartado() {
                     <textarea value={waNuevoForm.cuerpo} onChange={e => setWaNuevoForm(f => ({ ...f, cuerpo: e.target.value }))}
                       rows={5} className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none resize-none"
                       style={inputStyle}
-                      placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}" />
+                      placeholder="Usa {cliente}, {producto}, {precio}, {pendiente}, {abonado}, {lugar}, {diasTexto}, {dias}" />
                     <div className="flex gap-1.5">
                       <button onClick={() => { setWaAgregando(false); setWaNuevoForm({ emoji: '', titulo: '', cuerpo: '' }); }}
                         className="flex-1 py-1.5 rounded-lg text-xs text-text-light" style={{ border: '1px solid #E8DDD0' }}>
