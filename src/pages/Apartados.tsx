@@ -119,7 +119,7 @@ export default function Apartados() {
       c.numApartados++;
       c.apartados.push(ap);
     }
-    return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
+    return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   })();
 
   const resumenClientesHistorial = (() => {
