@@ -1034,7 +1034,8 @@ export default function Apartados() {
           .replace(/\{pendiente\}/g, clientePendiente.toLocaleString('es-MX'))
           .replace(/\{abonado\}/g, clienteAbonado.toLocaleString('es-MX'))
           .replace(/\{lugar\}/g, lugar)
-          .replace(/\{diasTexto\}/g, diasTexto);
+          .replace(/\{diasTexto\}/g, diasTexto)
+          .replace(/\{dias\}/g, diasNum !== null ? String(diasNum) : '');
 
         const enviar = (cuerpo: string) => {
           const tel = waApartado.cliente_tel?.replace(/\D/g, '') ?? '';
