@@ -22,7 +22,7 @@ export default function Apartados() {
   const [searchParams] = useSearchParams();
   const esHistorial = searchParams.get('historial') === '1';
 
-  const [busqueda, setBusquedaState] = useState(() => sessionStorage.getItem(SS_KEY) ?? '');
+  const [busqueda, setBusquedaState] = useState(() => searchParams.get('buscar') ?? sessionStorage.getItem(SS_KEY) ?? '');
   const setBusqueda = (v: string) => {
     setBusquedaState(v);
     if (v) sessionStorage.setItem(SS_KEY, v);
@@ -114,10 +114,13 @@ export default function Apartados() {
         mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', total: 0, pendiente: 0, numApartados: 0, apartados: [] });
       }
       const c = mapa.get(key)!;
-      c.total += ap.articulos?.precio_total ?? 0;
-      c.pendiente += pendiente(ap);
-      c.numApartados++;
       c.apartados.push(ap);
+      // Solo productos activos cuentan para total, pendiente y conteo
+      if (ap.estado === 'activo' && !ap.entregado) {
+        c.total += ap.articulos?.precio_total ?? 0;
+        c.pendiente += pendiente(ap);
+        c.numApartados++;
+      }
     }
     return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   })();
@@ -152,9 +155,10 @@ export default function Apartados() {
     if (db === null) return -1;
     return da - db;
   });
-  const clientesFiltrados = q
+  const clientesFiltrados = (q
     ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
-    : resumenClientes;
+    : resumenClientes
+  ).filter(c => c.apartados.some(ap => ap.estado === 'activo' && !ap.entregado));
   const clientesHistorialFiltrados = q
     ? resumenClientesHistorial.filter(c =>
         c.nombre.toLowerCase().includes(q) ||
@@ -197,6 +201,10 @@ export default function Apartados() {
   const registrarAbonoCliente = async (c: ResumenCliente) => {
     const monto = parseFloat(montoRapido);
     if (!monto || monto <= 0) return;
+    if (c.pendiente <= 0) {
+      setErrorAbonoRapido('Este cliente ya no tiene saldo pendiente');
+      return;
+    }
     if (monto > c.pendiente) {
       setErrorAbonoRapido(`El monto supera la deuda total ($${c.pendiente.toLocaleString('es-MX')})`);
       return;
@@ -207,6 +215,12 @@ export default function Apartados() {
       : new Date().toISOString();
     const primerApartado = [...c.apartados].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
     await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: '', created_at: now });
+
+    if (monto >= c.pendiente) {
+      const activos = c.apartados.filter(ap => ap.estado !== 'liquidado' && !ap.entregado);
+      await Promise.all(activos.map(ap => updateApartado(ap.id, { estado: 'liquidado' })));
+    }
+
     setAbonoClienteKey(null);
     setMontoRapido('');
     setFechaAbonoRapido('');
@@ -517,11 +531,14 @@ export default function Apartados() {
                       {/* Tres botones de acción */}
                       <div className="grid grid-cols-3 gap-2 p-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
                         <button
-                          onClick={() => { setAbonoClienteKey(abonoClienteKey === c.nombre ? null : c.nombre); setAbonosClienteKey(null); setProductoClienteKey(null); setMontoRapido(''); }}
+                          onClick={() => { if (c.pendiente <= 0) return; setAbonoClienteKey(abonoClienteKey === c.nombre ? null : c.nombre); setAbonosClienteKey(null); setProductoClienteKey(null); setMontoRapido(''); }}
+                          disabled={c.pendiente <= 0}
                           className="py-2 rounded-xl text-xs font-medium text-center transition-all"
-                          style={abonoClienteKey === c.nombre
-                            ? { backgroundColor: '#7D9B7E', color: 'white', border: '1px solid #7D9B7E' }
-                            : { backgroundColor: 'rgba(125,155,126,0.12)', color: '#7D9B7E', border: '1px solid rgba(125,155,126,0.3)' }}>
+                          style={c.pendiente <= 0
+                            ? { backgroundColor: 'rgba(125,155,126,0.05)', color: '#C4B8B0', border: '1px solid rgba(125,155,126,0.15)', cursor: 'not-allowed' }
+                            : abonoClienteKey === c.nombre
+                              ? { backgroundColor: '#7D9B7E', color: 'white', border: '1px solid #7D9B7E' }
+                              : { backgroundColor: 'rgba(125,155,126,0.12)', color: '#7D9B7E', border: '1px solid rgba(125,155,126,0.3)' }}>
                           + Abonar
                         </button>
                         <button
@@ -672,6 +689,7 @@ export default function Apartados() {
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
                         const todosAbonos = c.apartados
+                          .filter(ap => ap.estado === 'activo' && !ap.entregado)
                           .flatMap(ap => (ap.abonos ?? []))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
@@ -708,9 +726,21 @@ export default function Apartados() {
                                           <button onClick={async () => {
                                             const updates: { monto?: number; created_at?: string } = {};
                                             const m = parseFloat(editMontoAbono);
-                                            if (m > 0) updates.monto = m;
+                                            if (m > 0) {
+                                              const maxMonto = ab.monto + c.pendiente;
+                                              if (m > maxMonto) {
+                                                setErrorEditarAbono(`Máx $${maxMonto.toLocaleString('es-MX')}`);
+                                                return;
+                                              }
+                                              updates.monto = m;
+                                            }
                                             if (editFechaAbono) updates.created_at = new Date(editFechaAbono + 'T12:00:00').toISOString();
                                             if (Object.keys(updates).length) await updateAbono(ab.id, updates);
+                                            const nuevoPendiente = c.pendiente - ((updates.monto ?? ab.monto) - ab.monto);
+                                            if (nuevoPendiente <= 0) {
+                                              const activos = c.apartados.filter(ap => ap.estado !== 'liquidado' && !ap.entregado);
+                                              await Promise.all(activos.map(ap => updateApartado(ap.id, { estado: 'liquidado' })));
+                                            }
                                             setEditandoAbonoId(null); setErrorEditarAbono(''); cargar();
                                           }} style={{ padding: '4px 10px', borderRadius: 8, border: 'none', backgroundColor: '#7D9B7E', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✓</button>
                                           <button onClick={() => { setEditandoAbonoId(null); setErrorEditarAbono(''); }}
@@ -746,21 +776,29 @@ export default function Apartados() {
                         );
                       })()}
 
-                      {c.apartados.filter(ap => !ap.entregado || (!!ap.entregado && ap.estado !== 'liquidado')).map(ap => {
+                      {c.apartados.filter(ap => ap.estado === 'activo' && !ap.entregado).map(ap => {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
-                        const liquidarProducto = () => {
+                        const liquidarProducto = async () => {
                           if (c.pendiente > 0) {
-                            setConfirmarLiquidar({ apId: ap.id, nombre: ap.articulos?.nombre ?? '', falta: c.pendiente, sinLugar: !ap.lugar_entrega });
-                            return;
-                          }
-                          updateApartado(ap.id, { estado: 'liquidado' }).then(() => {
-                            if (!ap.lugar_entrega) {
-                              setRecienLiquidados([{ id: ap.id, nombre: ap.articulos?.nombre ?? '' }]);
-                              setLugarEntregaRapido('');
+                            const monto = Math.min(c.pendiente, precio);
+                            const primerApartado = [...c.apartados].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+                            await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
+                            const nuevoPendiente = c.pendiente - monto;
+                            if (nuevoPendiente <= 0) {
+                              const activos = c.apartados.filter(a => a.estado !== 'liquidado' && !a.entregado);
+                              await Promise.all(activos.map(a => updateApartado(a.id, { estado: 'liquidado' })));
+                            } else {
+                              await updateApartado(ap.id, { estado: 'liquidado' });
                             }
-                            cargar();
-                          });
+                          } else {
+                            await updateApartado(ap.id, { estado: 'liquidado' });
+                          }
+                          if (!ap.lugar_entrega) {
+                            setRecienLiquidados([{ id: ap.id, nombre: ap.articulos?.nombre ?? '' }]);
+                            setLugarEntregaRapido('');
+                          }
+                          cargar();
                         };
                         return (
                           <div key={ap.id} className="border-b last:border-0 flex items-center justify-between px-4 py-3 gap-2" style={{ borderColor: '#E8DDD0' }}>

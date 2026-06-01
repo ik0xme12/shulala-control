@@ -82,3 +82,40 @@ export async function syncOnReconnect() {
   await flushQueue();
   await pullAll();
 }
+
+export async function consolidateSplitAbonos() {
+  const allAbonos = await db.abonos.toArray();
+  const apartados = await db.apartados.toArray();
+  const apMap = new Map(apartados.map(ap => [ap.id, ap]));
+
+  // Clave de agrupación: pago_id si existe, sino created_at exacto + cliente
+  const grupos = new Map<string, typeof allAbonos>();
+  for (const ab of allAbonos) {
+    const ap = apMap.get(ab.apartado_id);
+    if (!ap) continue;
+    const clave = ab.pago_id
+      ? `pago:${ab.pago_id}`
+      : `ts:${ab.created_at}:${ap.cliente_nombre}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave)!.push(ab);
+  }
+
+  const { insertAbono, deleteAbono } = await import('./dataService');
+
+  for (const [, items] of grupos) {
+    // Solo consolida si hay más de un abono en el grupo y van a apartados distintos
+    const apartadoIds = new Set(items.map(ab => ab.apartado_id));
+    if (items.length <= 1 || apartadoIds.size <= 1) continue;
+
+    const total = items.reduce((s, ab) => s + ab.monto, 0);
+
+    const sorted = items.slice().sort((a, b) => {
+      const tA = new Date(apMap.get(a.apartado_id)?.created_at ?? 0).getTime();
+      const tB = new Date(apMap.get(b.apartado_id)?.created_at ?? 0).getTime();
+      return tA - tB;
+    });
+
+    await insertAbono({ id: crypto.randomUUID(), apartado_id: sorted[0].apartado_id, monto: total, nota: '', created_at: items[0].created_at });
+    for (const ab of items) await deleteAbono(ab.id);
+  }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
-import { getApartado, getApartadosFull, updateApartado, updateArticulo, deleteApartado } from '../lib/dataService';
+import { getApartado, getApartadosFull, updateApartado, updateArticulo, deleteApartado, deleteAbono } from '../lib/dataService';
 import Header from '../components/Header';
 
 type WaTemplate = { id: string; emoji: string; titulo: string; cuerpo: string; esDefault?: boolean };
@@ -266,6 +266,19 @@ export default function DetalleApartado() {
             <p className="text-xs text-text-light mb-3">{apartado.articulos.descripcion}</p>
           )}
 
+          {(() => {
+            const abonoInicial = (apartado.abonos ?? []).find(a => a.nota === 'ABONO INICIAL');
+            if (!abonoInicial) return null;
+            return (
+              <div className="flex items-center gap-1.5 mb-3 mt-1">
+                <span className="text-xs" style={{ color: '#7A6A62' }}>💵 Abono inicial:</span>
+                <span className="text-xs font-semibold" style={{ color: '#7D9B7E' }}>
+                  ${abonoInicial.monto.toLocaleString('es-MX')}
+                </span>
+              </div>
+            );
+          })()}
+
           {/* Datos cliente */}
           <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
             {editandoCliente ? (
@@ -462,7 +475,18 @@ export default function DetalleApartado() {
           <div className="flex gap-2">
             {liquidado ? (
               <button
-                onClick={() => updateApartado(id!, { estado: 'activo' }).then(cargar)}
+                onClick={async () => {
+                  // Buscar el último abono LIQUIDACIÓN en TODOS los productos del cliente
+                  const todos = await getApartadosFull();
+                  const deCliente = todos.filter(ap => ap.cliente_nombre === apartado!.cliente_nombre);
+                  const liquidaciones = deCliente
+                    .flatMap(ap => ap.abonos ?? [])
+                    .filter(a => a.nota === 'LIQUIDACIÓN')
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                  if (liquidaciones[0]) await deleteAbono(liquidaciones[0].id);
+                  await updateApartado(id!, { estado: 'activo' });
+                  navigate(`/apartados?buscar=${encodeURIComponent(apartado!.cliente_nombre)}`);
+                }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all"
                 style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
                 title="Toca para deshacer liquidación">

@@ -96,7 +96,7 @@ export default function NuevoApartado() {
       if (abonoInicial > 0) {
         await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abonoInicial, nota: 'ABONO INICIAL', created_at: now });
       }
-      navigate(`/apartado/${apId}`);
+      navigate(`/apartados?buscar=${encodeURIComponent(form.cliente_nombre.toUpperCase())}`);
     } catch {
       setError('Error al guardar'); setGuardando(false);
     }
