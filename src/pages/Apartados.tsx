@@ -780,19 +780,18 @@ export default function Apartados() {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
                         const liquidarProducto = async () => {
-                          if (c.pendiente > 0) {
-                            const monto = Math.min(c.pendiente, precio);
-                            const primerApartado = [...c.apartados].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
-                            await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
-                            const nuevoPendiente = c.pendiente - monto;
-                            if (nuevoPendiente <= 0) {
-                              const activos = c.apartados.filter(a => a.estado !== 'liquidado' && !a.entregado);
-                              await Promise.all(activos.map(a => updateApartado(a.id, { estado: 'liquidado' })));
-                            } else {
-                              await updateApartado(ap.id, { estado: 'liquidado' });
-                            }
-                          } else {
-                            await updateApartado(ap.id, { estado: 'liquidado' });
+                          // Calcular pendiente del producto específico (no del cliente total)
+                          const abonadoProducto = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+                          const productoPendiente = Math.max(0, precio - abonadoProducto);
+                          if (productoPendiente > 0) {
+                            // Guardar LIQUIDACIÓN en el producto específico, no en primerApartado
+                            await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: productoPendiente, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
+                          }
+                          await updateApartado(ap.id, { estado: 'liquidado' });
+                          const nuevoPendiente = c.pendiente - productoPendiente;
+                          if (nuevoPendiente <= 0) {
+                            const activos = c.apartados.filter(a => a.id !== ap.id && a.estado !== 'liquidado' && !a.entregado);
+                            await Promise.all(activos.map(a => updateApartado(a.id, { estado: 'liquidado' })));
                           }
                           if (!ap.lugar_entrega) {
                             setRecienLiquidados([{ id: ap.id, nombre: ap.articulos?.nombre ?? '' }]);

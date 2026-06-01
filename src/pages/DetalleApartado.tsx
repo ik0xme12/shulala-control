@@ -476,14 +476,11 @@ export default function DetalleApartado() {
             {liquidado ? (
               <button
                 onClick={async () => {
-                  // Buscar el último abono LIQUIDACIÓN en TODOS los productos del cliente
-                  const todos = await getApartadosFull();
-                  const deCliente = todos.filter(ap => ap.cliente_nombre === apartado!.cliente_nombre);
-                  const liquidaciones = deCliente
-                    .flatMap(ap => ap.abonos ?? [])
+                  // El LIQUIDACIÓN está en este mismo producto
+                  const liquidacion = (apartado!.abonos ?? [])
                     .filter(a => a.nota === 'LIQUIDACIÓN')
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                  if (liquidaciones[0]) await deleteAbono(liquidaciones[0].id);
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                  if (liquidacion) await deleteAbono(liquidacion.id);
                   await updateApartado(id!, { estado: 'activo' });
                   navigate(`/apartados?buscar=${encodeURIComponent(apartado!.cliente_nombre)}`);
                 }}
