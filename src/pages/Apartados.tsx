@@ -249,13 +249,13 @@ export default function Apartados() {
             <input
               type="text"
               value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
+              onChange={e => setBusqueda(e.target.value.toUpperCase())}
               placeholder={
                 filtro === 'liquidado' ? 'Buscar en historial...'
                 : vista === 'clientes' ? 'Buscar cliente...'
                 : 'Buscar artículo...'
               }
-              className="w-full pl-8 pr-9 py-2 rounded-xl text-sm text-text focus:outline-none"
+              className="w-full pl-8 pr-9 py-2 rounded-xl text-sm text-text focus:outline-none uppercase placeholder:normal-case"
               style={{ border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' }}
             />
             {busqueda && (
