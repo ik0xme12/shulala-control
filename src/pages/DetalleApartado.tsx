@@ -470,6 +470,37 @@ export default function DetalleApartado() {
 
         </div>
 
+        {/* Historial de abonos */}
+        {(apartado.abonos ?? []).length > 0 && (() => {
+          const abonos = [...(apartado.abonos ?? [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          const totalAbonado = abonos.reduce((s, a) => s + a.monto, 0);
+          return (
+            <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
+                <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#7A6A62' }}>
+                  {abonos.length} abono{abonos.length !== 1 ? 's' : ''}
+                </span>
+                <span className="text-xs font-semibold font-sans" style={{ color: '#7D9B7E' }}>
+                  Total: ${totalAbonado.toLocaleString('es-MX')}
+                </span>
+              </div>
+              {abonos.map(ab => (
+                <div key={ab.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
+                  <div>
+                    <div className="text-xs" style={{ color: '#7A6A62' }}>
+                      {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                    {ab.nota && <div className="text-[11px] mt-0.5" style={{ color: '#B8956A' }}>{ab.nota}</div>}
+                  </div>
+                  <span className="text-sm font-semibold font-sans" style={{ color: '#7D9B7E' }}>
+                    +${ab.monto.toLocaleString('es-MX')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Acciones */}
         <div className="bg-white rounded-2xl p-4" style={{ border: '1px solid #E8DDD0' }}>
           <div className="flex gap-2">

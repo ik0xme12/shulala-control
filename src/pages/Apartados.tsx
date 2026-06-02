@@ -204,7 +204,7 @@ export default function Apartados() {
     const now = fechaAbonoRapido
       ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
       : new Date().toISOString();
-    const primerApartado = [...c.apartados].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+    const primerApartado = [...c.apartados].filter(a => a.estado === 'activo').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
     await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: '', created_at: now });
 
     if (monto >= c.pendiente) {
