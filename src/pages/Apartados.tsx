@@ -808,7 +808,14 @@ export default function Apartados() {
                               <div className="flex flex-col items-end gap-1">
                                 {ap.estado === 'liquidado' ? (
                                   <button
-                                    onClick={() => updateApartado(ap.id, { estado: 'activo' }).then(cargar)}
+                                    onClick={async () => {
+                                      const liquidacion = (ap.abonos ?? [])
+                                        .filter(a => a.nota === 'LIQUIDACIÓN')
+                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                                      if (liquidacion) await deleteAbono(liquidacion.id);
+                                      await updateApartado(ap.id, { estado: 'activo' });
+                                      cargar();
+                                    }}
                                     className="text-xs px-2 py-0.5 rounded-full font-medium transition-all"
                                     style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
                                     title="Toca para deshacer liquidación">
