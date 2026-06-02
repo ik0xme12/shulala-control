@@ -49,7 +49,7 @@ export default function Apartados() {
   const [editandoAbonoId, setEditandoAbonoId] = useState<string | null>(null);
   const [editFechaAbono, setEditFechaAbono] = useState('');
   const [editMontoAbono, setEditMontoAbono] = useState('');
-  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string } | null>(null);
+  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string; grupo?: { id: string; apartadoId: string }[] } | null>(null);
   const [errorAbonoRapido, setErrorAbonoRapido] = useState('');
   const [errorEditarAbono, setErrorEditarAbono] = useState('');
   const [confirmarEntregar, setConfirmarEntregar] = useState<string | null>(null);
@@ -700,24 +700,40 @@ export default function Apartados() {
                           .flatMap(ap => (ap.abonos ?? []))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
+                        // Agrupar por created_at los abonos normales (cascada); LIQUIDACIÓN/ABONO INICIAL individual
+                        const abonosAgrupados = (() => {
+                          const map = new Map<string, typeof todosAbonos>();
+                          for (const ab of todosAbonos) {
+                            const key = (ab.nota === 'LIQUIDACIÓN' || ab.nota === 'ABONO INICIAL') ? ab.id : ab.created_at;
+                            if (!map.has(key)) map.set(key, []);
+                            map.get(key)!.push(ab);
+                          }
+                          return Array.from(map.values()).sort((a, b) =>
+                            new Date(b[0].created_at).getTime() - new Date(a[0].created_at).getTime()
+                          );
+                        })();
                         return (
                           <div className="animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
                             <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'rgba(125,155,126,0.06)', borderBottom: '1px solid #E8DDD0' }}>
                               <span className="text-base font-bold" style={{ color: '#2C2422' }}>
-                                {todosAbonos.length} abono{todosAbonos.length !== 1 ? 's' : ''}
+                                {abonosAgrupados.length} abono{abonosAgrupados.length !== 1 ? 's' : ''}
                               </span>
                               <span className="text-base font-bold font-sans" style={{ color: '#B8956A' }}>
                                 Total: ${totalAbonos.toLocaleString('es-MX')}
                               </span>
                             </div>
-                            {todosAbonos.length === 0 ? (
+                            {abonosAgrupados.length === 0 ? (
                               <p className="text-xs text-center py-4 font-serif" style={{ color: '#7A6A62' }}>Sin abonos registrados</p>
                             ) : (
                               <div className="px-3 py-2 space-y-1.5">
-                                {todosAbonos.map(ab => (
+                                {abonosAgrupados.map(grupo => {
+                                  const ab = grupo[0];
+                                  const esGrupo = grupo.length > 1;
+                                  const montoGrupo = grupo.reduce((s, a) => s + a.monto, 0);
+                                  return (
                                   <div key={ab.id} className="rounded-xl px-3 py-2.5"
                                     style={{ backgroundColor: 'rgba(125,155,126,0.07)', border: '1px solid rgba(125,155,126,0.15)' }}>
-                                    {editandoAbonoId === ab.id ? (
+                                    {(!esGrupo && editandoAbonoId === ab.id) ? (
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
@@ -757,18 +773,23 @@ export default function Apartados() {
                                       </div>
                                     ) : (
                                       <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                          onClick={() => { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); setEditMontoAbono(String(ab.monto)); }}>
+                                        <div className="flex items-center gap-3 flex-1 min-w-0"
+                                          style={{ cursor: esGrupo ? 'default' : 'pointer' }}
+                                          onClick={() => { if (!esGrupo) { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); setEditMontoAbono(String(ab.monto)); } }}>
                                           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
                                             style={{ backgroundColor: '#7D9B7E' }}>$</div>
                                           <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
                                             {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                                           </div>
                                           <div className="text-base font-bold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
-                                            +${ab.monto.toLocaleString('es-MX')}
+                                            +${montoGrupo.toLocaleString('es-MX')}
                                           </div>
                                         </div>
-                                        <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
+                                        <button onClick={() => setConfirmarEliminarAbono(
+                                          esGrupo
+                                            ? { abonoId: ab.id, apartadoId: ab.apartado_id, grupo: grupo.map(a => ({ id: a.id, apartadoId: a.apartado_id })) }
+                                            : { abonoId: ab.id, apartadoId: ab.apartado_id }
+                                        )}
                                           className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
                                           style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
                                           ✕
@@ -776,7 +797,8 @@ export default function Apartados() {
                                       </div>
                                     )}
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -974,7 +996,11 @@ export default function Apartados() {
                 Cancelar
               </button>
               <button onClick={async () => {
-                await deleteAbono(confirmarEliminarAbono.abonoId);
+                if (confirmarEliminarAbono.grupo) {
+                  await Promise.all(confirmarEliminarAbono.grupo.map(g => deleteAbono(g.id)));
+                } else {
+                  await deleteAbono(confirmarEliminarAbono.abonoId);
+                }
                 setConfirmarEliminarAbono(null);
                 cargar();
               }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#C4A49A' }}>
