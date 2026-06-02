@@ -57,7 +57,6 @@ export default function Apartados() {
   const [waApartado, setWaApartado] = useState<Apartado | null>(null);
   const [waPreviewId, setWaPreviewId] = useState<string | null>(null);
   const syncReady = useSyncReady();
-  const prevFiltroVista = useRef({ filtro, vista });
 
   const cargar = async () => {
     setCargando(true);
@@ -72,13 +71,6 @@ export default function Apartados() {
   };
 
   useEffect(() => { cargar(); }, [filtro, syncReady]);
-  useEffect(() => {
-    const prev = prevFiltroVista.current;
-    if (prev.filtro !== filtro || prev.vista !== vista) {
-      setBusqueda('');
-      prevFiltroVista.current = { filtro, vista };
-    }
-  }, [filtro, vista]);
 
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
