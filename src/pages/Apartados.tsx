@@ -110,6 +110,8 @@ export default function Apartados() {
       if (ap.estado === 'activo') {
         c.total += ap.articulos?.precio_total ?? 0;
         c.pendiente += pendiente(ap);
+      }
+      if (!(ap.estado === 'liquidado' && ap.entregado)) {
         c.numApartados++;
       }
     }
@@ -149,7 +151,7 @@ export default function Apartados() {
   const clientesFiltrados = (q
     ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
     : resumenClientes
-  ).filter(c => c.apartados.some(ap => ap.estado === 'activo'));
+  ).filter(c => c.apartados.some(ap => !(ap.estado === 'liquidado' && ap.entregado)));
   const clientesHistorialFiltrados = q
     ? resumenClientesHistorial.filter(c =>
         c.nombre.toLowerCase().includes(q) ||
@@ -680,7 +682,7 @@ export default function Apartados() {
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
                         const todosAbonos = c.apartados
-                          .filter(ap => ap.estado === 'activo')
+                          .filter(ap => !(ap.estado === 'liquidado' && ap.entregado))
                           .flatMap(ap => (ap.abonos ?? []))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
@@ -767,7 +769,7 @@ export default function Apartados() {
                         );
                       })()}
 
-                      {c.apartados.filter(ap => ap.estado === 'activo').map(ap => {
+                      {c.apartados.filter(ap => !(ap.estado === 'liquidado' && ap.entregado)).map(ap => {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
                         const liquidarProducto = async () => {
