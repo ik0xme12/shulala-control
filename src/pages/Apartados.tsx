@@ -115,8 +115,7 @@ export default function Apartados() {
       }
       const c = mapa.get(key)!;
       c.apartados.push(ap);
-      // Solo productos activos cuentan para total, pendiente y conteo
-      if (ap.estado === 'activo' && !ap.entregado) {
+      if (ap.estado === 'activo') {
         c.total += ap.articulos?.precio_total ?? 0;
         c.pendiente += pendiente(ap);
         c.numApartados++;
@@ -158,7 +157,7 @@ export default function Apartados() {
   const clientesFiltrados = (q
     ? resumenClientes.filter(c => c.nombre.toLowerCase().includes(q))
     : resumenClientes
-  ).filter(c => c.apartados.some(ap => ap.estado === 'activo' && !ap.entregado));
+  ).filter(c => c.apartados.some(ap => ap.estado === 'activo'));
   const clientesHistorialFiltrados = q
     ? resumenClientesHistorial.filter(c =>
         c.nombre.toLowerCase().includes(q) ||
@@ -689,7 +688,7 @@ export default function Apartados() {
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
                         const todosAbonos = c.apartados
-                          .filter(ap => ap.estado === 'activo' && !ap.entregado)
+                          .filter(ap => ap.estado === 'activo')
                           .flatMap(ap => (ap.abonos ?? []))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
@@ -776,7 +775,7 @@ export default function Apartados() {
                         );
                       })()}
 
-                      {c.apartados.filter(ap => ap.estado === 'activo' && !ap.entregado).map(ap => {
+                      {c.apartados.filter(ap => ap.estado === 'activo').map(ap => {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
                         const liquidarProducto = async () => {
