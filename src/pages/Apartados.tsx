@@ -206,11 +206,25 @@ export default function Apartados() {
     const now = fechaAbonoRapido
       ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
       : new Date().toISOString();
-    const primerApartado = [...c.apartados].filter(a => a.estado === 'activo').sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
-    await insertAbono({ id: crypto.randomUUID(), apartado_id: primerApartado.id, monto, nota: '', created_at: now });
+
+    // Distribuir el abono en cascada: llena el producto más antiguo primero,
+    // el sobrante pasa al siguiente activo
+    const activosOrdenados = [...c.apartados]
+      .filter(a => a.estado === 'activo')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    let restante = monto;
+    for (const ap of activosOrdenados) {
+      if (restante <= 0) break;
+      const abonadoAp = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+      const pendienteAp = Math.max(0, (ap.articulos?.precio_total ?? 0) - abonadoAp);
+      if (pendienteAp <= 0) continue;
+      const montoAp = Math.min(restante, pendienteAp);
+      await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: montoAp, nota: '', created_at: now });
+      restante -= montoAp;
+    }
 
     if (monto >= c.pendiente) {
-      const activos = c.apartados.filter(ap => ap.estado !== 'liquidado' && !ap.entregado);
+      const activos = c.apartados.filter(ap => ap.estado === 'activo');
       await Promise.all(activos.map(ap => updateApartado(ap.id, { estado: 'liquidado' })));
     }
 
