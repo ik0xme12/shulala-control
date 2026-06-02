@@ -91,7 +91,9 @@ export default function Entregas() {
     const clientes = porLugar.get(lugar)!;
     if (!clientes.has(ap.cliente_nombre))
       clientes.set(ap.cliente_nombre, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', apartados: [] });
-    clientes.get(ap.cliente_nombre)!.apartados.push(ap);
+    const cliente = clientes.get(ap.cliente_nombre)!;
+    if (!cliente.tel && ap.cliente_tel) cliente.tel = ap.cliente_tel;
+    cliente.apartados.push(ap);
   }
 
   // Lugares con nombre primero, sin nombre al final
@@ -233,7 +235,7 @@ function TarjetaCliente({ c, expandido, onToggle, entregando, onMarcar }: {
       {expandido && (
         <div className="border-t divide-y divide-[#E8DDD0] animate-fade-in" style={{ borderColor: '#E8DDD0' }}>
           {c.apartados.map(ap => (
-            <FilaApartado key={ap.id} ap={ap} entregando={entregando} onToggle={onMarcar} />
+            <FilaApartado key={ap.id} ap={ap} clienteTel={c.tel} entregando={entregando} onToggle={onMarcar} />
           ))}
         </div>
       )}
@@ -241,8 +243,9 @@ function TarjetaCliente({ c, expandido, onToggle, entregando, onMarcar }: {
   );
 }
 
-function FilaApartado({ ap, entregando, onToggle }: {
+function FilaApartado({ ap, clienteTel, entregando, onToggle }: {
   ap: Apartado;
+  clienteTel: string;
   entregando: string | null;
   onToggle: (ap: Apartado) => void;
 }) {
@@ -286,9 +289,9 @@ function FilaApartado({ ap, entregando, onToggle }: {
           );
         })()}
       </Link>
-      {ap.cliente_tel && !ap.entregado && (puedeEntregar || (dias !== null && dias <= 5)) && (
+      {(clienteTel || ap.cliente_tel) && !ap.entregado && (puedeEntregar || (dias !== null && dias <= 5)) && (
         <a
-          href={`https://wa.me/${ap.cliente_tel.replace(/\D/g, '')}?text=${encodeURIComponent(
+          href={`https://wa.me/${(clienteTel || ap.cliente_tel)!.replace(/\D/g, '')}?text=${encodeURIComponent(
             puedeEntregar
               ? `Hola ${ap.cliente_nombre}, tu pedido de *${ap.articulos?.nombre}* ya está listo para recoger${ap.lugar_entrega ? ` en *${ap.lugar_entrega}*` : ''}. ¡Esperamos verte pronto!`
               : `Hola ${ap.cliente_nombre}, te recordamos tu apartado de *${ap.articulos?.nombre}*. ¡Pasa a liquidarlo y recogerlo pronto!`
