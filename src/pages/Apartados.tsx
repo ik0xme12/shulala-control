@@ -457,9 +457,9 @@ export default function Apartados() {
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs" style={{ color: '#B8956A' }}>{pct}%</span>
-                    {ap.cliente_tel && (
+                    {(ap.cliente_tel || resumenClientes.find(rc => rc.nombre === ap.cliente_nombre)?.tel) && (
                       <button
-                        onClick={e => { e.preventDefault(); e.stopPropagation(); setWaApartado(ap); }}
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); setWaApartado({ ...ap, cliente_tel: ap.cliente_tel || resumenClientes.find(rc => rc.nombre === ap.cliente_nombre)?.tel || null }); }}
                         className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg"
                         style={{ backgroundColor: 'rgba(37,211,102,0.1)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.3)', cursor: 'pointer' }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -853,9 +853,9 @@ export default function Apartados() {
                                     📦 Entregar
                                   </button>
                                 )}
-                                {ap.cliente_tel && (
+                                {(c.tel || ap.cliente_tel) && (
                                   <button
-                                    onClick={() => setWaApartado(ap)}
+                                    onClick={() => setWaApartado({ ...ap, cliente_tel: c.tel || ap.cliente_tel })}
                                     className="text-xs px-2 py-0.5 rounded-full font-medium transition-all flex items-center gap-1"
                                     style={{ backgroundColor: 'rgba(37,211,102,0.12)', color: '#1a8f47', border: '1px solid rgba(37,211,102,0.35)' }}
                                     title="Enviar WhatsApp al cliente">
