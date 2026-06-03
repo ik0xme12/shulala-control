@@ -19,14 +19,19 @@ type ResumenCliente = {
 };
 
 export default function Apartados() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const esHistorial = searchParams.get('historial') === '1';
 
   const [busqueda, setBusquedaState] = useState(() => searchParams.get('buscar') ?? sessionStorage.getItem(SS_KEY) ?? '');
   const setBusqueda = (v: string) => {
     setBusquedaState(v);
-    if (v) sessionStorage.setItem(SS_KEY, v);
-    else sessionStorage.removeItem(SS_KEY);
+    if (v) {
+      sessionStorage.setItem(SS_KEY, v);
+      setSearchParams({ buscar: v, ...(esHistorial ? { historial: '1' } : {}) }, { replace: true });
+    } else {
+      sessionStorage.removeItem(SS_KEY);
+      setSearchParams(esHistorial ? { historial: '1' } : {}, { replace: true });
+    }
   };
 
   const [apartados, setApartados] = useState<Apartado[]>([]);
@@ -107,12 +112,12 @@ export default function Apartados() {
       }
       const c = mapa.get(key)!;
       c.apartados.push(ap);
-      if (ap.estado === 'activo') {
-        c.total += ap.articulos?.precio_total ?? 0;
-        c.pendiente += pendiente(ap);
-      }
       if (!(ap.estado === 'liquidado' && ap.entregado)) {
+        c.total += ap.articulos?.precio_total ?? 0;
         c.numApartados++;
+      }
+      if (ap.estado === 'activo') {
+        c.pendiente += pendiente(ap);
       }
     }
     return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
