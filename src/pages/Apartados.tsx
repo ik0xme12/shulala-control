@@ -112,7 +112,8 @@ export default function Apartados() {
       }
       const c = mapa.get(key)!;
       c.apartados.push(ap);
-      if (!(ap.estado === 'liquidado' && ap.entregado)) {
+      // Solo cuenta apartados que NO estén entregados
+      if (!ap.entregado) {
         c.total += ap.articulos?.precio_total ?? 0;
         c.numApartados++;
         c.pendiente += pendiente(ap);
