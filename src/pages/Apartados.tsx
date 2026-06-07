@@ -115,8 +115,6 @@ export default function Apartados() {
       if (!(ap.estado === 'liquidado' && ap.entregado)) {
         c.total += ap.articulos?.precio_total ?? 0;
         c.numApartados++;
-      }
-      if (ap.estado === 'activo') {
         c.pendiente += pendiente(ap);
       }
     }
