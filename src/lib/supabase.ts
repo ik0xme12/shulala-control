@@ -31,7 +31,7 @@ export type Apartado = {
 
 export type Abono = {
   id: string;
-  apartado_id: string;
+  apartado_id: string | null;
   monto: number;
   nota: string;
   created_at: string;

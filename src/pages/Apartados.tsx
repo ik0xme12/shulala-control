@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
 import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono, deleteAbono } from '../lib/dataService';
@@ -40,22 +40,24 @@ export default function Apartados() {
   const [historialSubFiltro, setHistorialSubFiltro] = useState<'todos' | 'sin_liquidar'>('todos');
   const [vista, setVista] = useState<VistaTab>('clientes');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
-  const [abonoClienteKey, setAbonoClienteKey] = useState<string | null>(null);
   const [abonosClienteKey, setAbonosClienteKey] = useState<string | null>(null);
   const [productoClienteKey, setProductoClienteKey] = useState<string | null>(null);
+  const [abonarArticuloModal, setAbonarArticuloModal] = useState<{ apartadoId: string; nombre: string; precio: number; pendiente: number } | null>(null);
+  const [montoAbonarArticulo, setMontoAbonarArticulo] = useState('');
+  const [errorAbonarArticulo, setErrorAbonarArticulo] = useState('');
+  const [seleccionarArticuloClienteKey, setSeleccionarArticuloClienteKey] = useState<string | null>(null);
+  const [montoAbonoCliente, setMontoAbonoCliente] = useState('');
+  const [fechaAbonoCliente, setFechaAbonoCliente] = useState('');
+  const [errorAbonoCliente, setErrorAbonoCliente] = useState('');
   const [formProducto, setFormProducto] = useState({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' });
   const [recienLiquidados, setRecienLiquidados] = useState<{ id: string; nombre: string }[]>([]);
   const [lugarEntregaRapido, setLugarEntregaRapido] = useState('');
   const [guardandoProducto, setGuardandoProducto] = useState(false);
   const [mostrarLugaresProducto, setMostrarLugaresProducto] = useState(false);
-  const [montoRapido, setMontoRapido] = useState('');
-  const [fechaAbonoRapido, setFechaAbonoRapido] = useState('');
-  const fechaInputRef = useRef<HTMLInputElement>(null);
   const [editandoAbonoId, setEditandoAbonoId] = useState<string | null>(null);
   const [editFechaAbono, setEditFechaAbono] = useState('');
   const [editMontoAbono, setEditMontoAbono] = useState('');
-  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string; grupo?: { id: string; apartadoId: string }[] } | null>(null);
-  const [errorAbonoRapido, setErrorAbonoRapido] = useState('');
+  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<{ abonoId: string; apartadoId: string | null; grupo?: { id: string; apartadoId: string | null }[] } | null>(null);
   const [errorEditarAbono, setErrorEditarAbono] = useState('');
   const [confirmarEntregar, setConfirmarEntregar] = useState<string | null>(null);
   const [confirmarLiquidar, setConfirmarLiquidar] = useState<{ apId: string; nombre: string; falta: number; sinLugar: boolean } | null>(null);
@@ -78,7 +80,14 @@ export default function Apartados() {
   useEffect(() => { cargar(); }, [filtro, syncReady]);
 
   const totalAbonado = (ap: Apartado) =>
-    (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+    (ap.abonos ?? []).filter(a => a.apartado_id === ap.id).reduce((s, a) => s + a.monto, 0);
+
+  const totalFondoCliente = (cliente: string) =>
+    apartados
+      .filter(ap => ap.cliente_nombre === cliente)
+      .flatMap(ap => ap.abonos ?? [])
+      .filter(a => a.apartado_id === null)
+      .reduce((s, a) => s + a.monto, 0);
 
   const porcentaje = (ap: Apartado) => {
     const precio = ap.articulos?.precio_total ?? 0;
@@ -112,14 +121,15 @@ export default function Apartados() {
       }
       const c = mapa.get(key)!;
       c.apartados.push(ap);
-      // Solo cuenta apartados que NO estén entregados
-      if (!ap.entregado) {
-        c.total += ap.articulos?.precio_total ?? 0;
-        c.numApartados++;
+      // Contar todos los artículos en total y numApartados
+      c.total += ap.articulos?.precio_total ?? 0;
+      c.numApartados++;
+      // Para el pendiente de abono: solo contar apartados activos (no liquidados)
+      if (ap.estado === 'activo') {
         c.pendiente += pendiente(ap);
       }
     }
-    return Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
   })();
 
   const resumenClientesHistorial = (() => {
@@ -195,46 +205,69 @@ export default function Apartados() {
     cargar();
   };
 
-  const registrarAbonoCliente = async (c: ResumenCliente) => {
-    const monto = parseFloat(montoRapido);
-    if (!monto || monto <= 0) return;
-    if (c.pendiente <= 0) {
-      setErrorAbonoRapido('Este cliente ya no tiene saldo pendiente');
+  const abonarArticulo = async (liquidar: boolean = false) => {
+    if (!abonarArticuloModal) return;
+    const montoIngresado = montoAbonarArticulo.trim();
+    let monto = parseFloat(montoIngresado);
+
+    // Si está liquidando y el input está vacío pero hay fondo suficiente, usar el pendiente
+    if (liquidar && !montoIngresado) {
+      const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+      const clienteApartado = apartadoActual?.cliente_nombre;
+      const saldosDisponibles = clienteApartado
+        ? apartados
+            .filter(ap => ap.cliente_nombre === clienteApartado)
+            .flatMap(ap => ap.abonos ?? [])
+            .filter(ab => ab.apartado_id === null)
+        : [];
+      const totalSaldoGlobal = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
+      const abonosEspecificos = apartadoActual ? (apartadoActual.abonos ?? []).filter(a => a.apartado_id === apartadoActual.id).reduce((s, a) => s + a.monto, 0) : 0;
+      const totalSaldos = totalSaldoGlobal - abonosEspecificos;
+      if (totalSaldos >= abonarArticuloModal.pendiente) {
+        monto = abonarArticuloModal.pendiente;
+      }
+    }
+
+    if (!monto || monto <= 0) {
+      setErrorAbonarArticulo('Ingresa un monto válido');
       return;
     }
-    if (monto > c.pendiente) {
-      setErrorAbonoRapido(`El monto supera la deuda total ($${c.pendiente.toLocaleString('es-MX')})`);
+    if (monto > abonarArticuloModal.pendiente) {
+      setErrorAbonarArticulo(`El monto supera la deuda ($${abonarArticuloModal.pendiente.toLocaleString('es-MX')})`);
       return;
     }
-    setErrorAbonoRapido('');
-    const now = fechaAbonoRapido
-      ? new Date(fechaAbonoRapido + 'T12:00:00').toISOString()
-      : new Date().toISOString();
 
-    // Distribuir el abono en cascada: llena el producto más antiguo primero,
-    // el sobrante pasa al siguiente activo
-    const activosOrdenados = [...c.apartados]
-      .filter(a => a.estado === 'activo')
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    let restante = monto;
-    for (const ap of activosOrdenados) {
-      if (restante <= 0) break;
-      const abonadoAp = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-      const pendienteAp = Math.max(0, (ap.articulos?.precio_total ?? 0) - abonadoAp);
-      if (pendienteAp <= 0) continue;
-      const montoAp = Math.min(restante, pendienteAp);
-      await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: montoAp, nota: '', created_at: now });
-      restante -= montoAp;
+    setErrorAbonarArticulo('');
+    const now = new Date().toISOString();
+
+    // Calcular fondo disponible (abonos globales del cliente)
+    const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+    const clienteApartado = apartadoActual?.cliente_nombre;
+    const saldosDisponibles = clienteApartado
+      ? apartados
+          .filter(ap => ap.cliente_nombre === clienteApartado)
+          .flatMap(ap => ap.abonos ?? [])
+          .filter(ab => ab.apartado_id === null)
+      : [];
+    const fondoDisponible = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
+
+    // Registrar el abono completo en el artículo (se descuenta del fondo automáticamente en el cálculo)
+    await insertAbono({
+      id: crypto.randomUUID(),
+      apartado_id: abonarArticuloModal.apartadoId,
+      monto,
+      nota: 'CONSUMO FONDO',
+      created_at: now
+    });
+
+    // Si se selecciona liquidar, cambiar estado a liquidado
+    if (liquidar) {
+      await updateApartado(abonarArticuloModal.apartadoId, { estado: 'liquidado' });
     }
 
-    if (monto >= c.pendiente) {
-      const activos = c.apartados.filter(ap => ap.estado === 'activo');
-      await Promise.all(activos.map(ap => updateApartado(ap.id, { estado: 'liquidado' })));
-    }
-
-    setAbonoClienteKey(null);
-    setMontoRapido('');
-    setFechaAbonoRapido('');
+    setAbonarArticuloModal(null);
+    setMontoAbonarArticulo('');
+    setErrorAbonarArticulo('');
     cargar();
   };
 
@@ -542,18 +575,18 @@ export default function Apartados() {
                       {/* Tres botones de acción */}
                       <div className="grid grid-cols-3 gap-2 p-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
                         <button
-                          onClick={() => { if (c.pendiente <= 0) return; setAbonoClienteKey(abonoClienteKey === c.nombre ? null : c.nombre); setAbonosClienteKey(null); setProductoClienteKey(null); setMontoRapido(''); }}
-                          disabled={c.pendiente <= 0}
+                          onClick={() => { setSeleccionarArticuloClienteKey(seleccionarArticuloClienteKey === c.nombre ? null : c.nombre); setProductoClienteKey(null); setAbonosClienteKey(null); }}
+                          disabled={c.apartados.filter(ap => ap.estado === 'activo').length === 0}
                           className="py-2 rounded-xl text-xs font-medium text-center transition-all"
-                          style={c.pendiente <= 0
+                          style={c.apartados.filter(ap => ap.estado === 'activo').length === 0
                             ? { backgroundColor: 'rgba(125,155,126,0.05)', color: '#C4B8B0', border: '1px solid rgba(125,155,126,0.15)', cursor: 'not-allowed' }
-                            : abonoClienteKey === c.nombre
+                            : seleccionarArticuloClienteKey === c.nombre
                               ? { backgroundColor: '#7D9B7E', color: 'white', border: '1px solid #7D9B7E' }
                               : { backgroundColor: 'rgba(125,155,126,0.12)', color: '#7D9B7E', border: '1px solid rgba(125,155,126,0.3)' }}>
                           + Abonar
                         </button>
                         <button
-                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setAbonoClienteKey(null); setAbonosClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' }); }}
+                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setAbonosClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' }); }}
                           className="py-2 rounded-xl text-xs font-medium text-center transition-all"
                           style={productoClienteKey === c.nombre
                             ? { backgroundColor: '#B8956A', color: 'white', border: '1px solid #B8956A' }
@@ -561,7 +594,7 @@ export default function Apartados() {
                           + Apartado
                         </button>
                         <button
-                          onClick={() => { setAbonosClienteKey(abonosClienteKey === c.nombre ? null : c.nombre); setAbonoClienteKey(null); setProductoClienteKey(null); }}
+                          onClick={() => { setAbonosClienteKey(abonosClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setProductoClienteKey(null); }}
                           className="py-2 rounded-xl text-xs font-medium text-center transition-all"
                           style={abonosClienteKey === c.nombre
                             ? { backgroundColor: '#C4A49A', color: 'white', border: '1px solid #C4A49A' }
@@ -570,52 +603,74 @@ export default function Apartados() {
                         </button>
                       </div>
 
-                      {/* Formulario abono rápido */}
-                      {abonoClienteKey === c.nombre && (
+
+                      {/* Formulario de abono sin asignar */}
+                      {seleccionarArticuloClienteKey === c.nombre && (
                         <div className="p-3 animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
                           <div className="flex items-center gap-2 rounded-xl p-3" style={{ backgroundColor: 'rgba(125,155,126,0.06)', border: '1px solid rgba(125,155,126,0.2)' }}>
                             <div className="relative flex-1">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
                               <input
-                                type="number" value={montoRapido}
-                                onChange={e => { setMontoRapido(e.target.value); setErrorAbonoRapido(''); }}
-                                placeholder={`Máx $${c.pendiente.toLocaleString('es-MX')}`}
-                                autoFocus min="0.01" step="0.01"
-                                onKeyDown={e => { if (e.key === 'Enter') registrarAbonoCliente(c); if (e.key === 'Escape') { setAbonoClienteKey(null); setErrorAbonoRapido(''); } }}
+                                type="number"
+                                value={montoAbonoCliente}
+                                onChange={e => { setMontoAbonoCliente(e.target.value); setErrorAbonoCliente(''); }}
+                                placeholder={`Máx $${(() => {
+                                  const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo');
+                                  const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
+                                  const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0);
+                                  return (totalArticulos - abonosEspecificos).toLocaleString('es-MX');
+                                })()}`}
+                                autoFocus
+                                min="0.01"
+                                step="0.01"
+                                onKeyDown={e => { if (e.key === 'Enter') { const m = parseFloat(montoAbonoCliente); if (m <= 0) return; const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo'); const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0); const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0); const pendienteReal = totalArticulos - abonosEspecificos; if (m > pendienteReal) { setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`); return; } const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString(); insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now }).then(() => { setSeleccionarArticuloClienteKey(null); setMontoAbonoCliente(''); setFechaAbonoCliente(''); setErrorAbonoCliente(''); cargar(); }); } }}
                                 className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none"
-                                style={{ border: `1px solid ${errorAbonoRapido ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
+                                style={{ border: `1px solid ${errorAbonoCliente ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
                             </div>
-                            {/* Selector de fecha — solo ícono */}
-                            <div className="relative shrink-0">
-                              <button type="button"
-                                onClick={() => fechaInputRef.current?.showPicker()}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg text-base transition-all"
-                                style={fechaAbonoRapido
-                                  ? { backgroundColor: '#7D9B7E', color: 'white', border: '1px solid #7D9B7E' }
-                                  : { backgroundColor: 'white', color: '#7A6A62', border: '1px solid #E8DDD0' }}
-                                title={fechaAbonoRapido || 'Fecha del sistema'}>
-                                🗓️
-                              </button>
-                              <input
-                                ref={fechaInputRef}
-                                type="date"
-                                value={fechaAbonoRapido}
-                                onChange={e => setFechaAbonoRapido(e.target.value)}
-                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
-                            </div>
-                            <button onClick={() => registrarAbonoCliente(c)}
+                            <input
+                              type="date"
+                              value={fechaAbonoCliente}
+                              onChange={e => setFechaAbonoCliente(e.target.value)}
+                              className="px-2 py-2 rounded-lg text-sm focus:outline-none"
+                              style={{ border: '1px solid #B8956A', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '14px', backgroundColor: 'white', color: fechaAbonoCliente ? '#2C2422' : '#7A6A62', width: '120px' }} />
+                            <button
+                              onClick={() => {
+                                const m = parseFloat(montoAbonoCliente);
+                                if (!m || m <= 0) {
+                                  setErrorAbonoCliente('Ingresa un monto válido');
+                                  return;
+                                }
+                                // Calcular pendiente real en el momento
+                                const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo');
+                                const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
+                                const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0);
+                                const pendienteReal = totalArticulos - abonosEspecificos;
+                                if (m > pendienteReal) {
+                                  setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`);
+                                  return;
+                                }
+                                const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString();
+                                insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now }).then(() => {
+                                  setSeleccionarArticuloClienteKey(null);
+                                  setMontoAbonoCliente('');
+                                  setFechaAbonoCliente('');
+                                  setErrorAbonoCliente('');
+                                  cargar();
+                                });
+                              }}
                               className="text-xs px-3 py-2 rounded-lg text-white font-medium"
                               style={{ backgroundColor: '#7D9B7E' }}>
                               Guardar
                             </button>
-                            <button onClick={() => { setAbonoClienteKey(null); setFechaAbonoRapido(''); setErrorAbonoRapido(''); }}
+                            <button
+                              onClick={() => { setSeleccionarArticuloClienteKey(null); setMontoAbonoCliente(''); setFechaAbonoCliente(''); setErrorAbonoCliente(''); }}
                               className="text-xs px-2 py-2 rounded-lg"
                               style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
                               ✕
                             </button>
                           </div>
-                          {errorAbonoRapido && (
-                            <p className="text-xs mt-1.5 px-1" style={{ color: '#DC2626' }}>{errorAbonoRapido}</p>
+                          {errorAbonoCliente && (
+                            <p className="text-xs mt-1.5 px-1" style={{ color: '#DC2626' }}>{errorAbonoCliente}</p>
                           )}
                         </div>
                       )}
@@ -699,9 +754,10 @@ export default function Apartados() {
 
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
+                        // Obtener todos los abonos del cliente (asignados + saldos sin asignar), excluyendo consumo de fondo
                         const todosAbonos = c.apartados
-                          .filter(ap => !(ap.estado === 'liquidado' && ap.entregado))
                           .flatMap(ap => (ap.abonos ?? []))
+                          .filter(ab => ab.nota !== 'CONSUMO FONDO')
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
                         // Agrupar por created_at los abonos normales (cascada); LIQUIDACIÓN/ABONO INICIAL individual
@@ -812,26 +868,6 @@ export default function Apartados() {
                       {c.apartados.filter(ap => !(ap.estado === 'liquidado' && ap.entregado)).map(ap => {
                         const dias = diasRestantes(ap);
                         const precio = ap.articulos?.precio_total ?? 0;
-                        const liquidarProducto = async () => {
-                          // Calcular pendiente del producto específico (no del cliente total)
-                          const abonadoProducto = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-                          const productoPendiente = Math.max(0, precio - abonadoProducto);
-                          if (productoPendiente > 0) {
-                            // Guardar LIQUIDACIÓN en el producto específico, no en primerApartado
-                            await insertAbono({ id: crypto.randomUUID(), apartado_id: ap.id, monto: productoPendiente, nota: 'LIQUIDACIÓN', created_at: new Date().toISOString() });
-                          }
-                          await updateApartado(ap.id, { estado: 'liquidado' });
-                          const nuevoPendiente = c.pendiente - productoPendiente;
-                          if (nuevoPendiente <= 0) {
-                            const activos = c.apartados.filter(a => a.id !== ap.id && a.estado !== 'liquidado' && !a.entregado);
-                            await Promise.all(activos.map(a => updateApartado(a.id, { estado: 'liquidado' })));
-                          }
-                          if (!ap.lugar_entrega) {
-                            setRecienLiquidados([{ id: ap.id, nombre: ap.articulos?.nombre ?? '' }]);
-                            setLugarEntregaRapido('');
-                          }
-                          cargar();
-                        };
                         return (
                           <div key={ap.id} className="border-b last:border-0 flex items-center justify-between px-4 py-3 gap-2" style={{ borderColor: '#E8DDD0' }}>
                             <Link to={`/apartado/${ap.id}`} className="text-sm font-medium text-text truncate flex-1 min-w-0 flex items-center gap-1.5">
@@ -850,17 +886,10 @@ export default function Apartados() {
                               <div className="flex flex-col items-end gap-1">
                                 {ap.estado === 'liquidado' ? (
                                   <button
-                                    onClick={async () => {
-                                      const liquidacion = (ap.abonos ?? [])
-                                        .filter(a => a.nota === 'LIQUIDACIÓN')
-                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-                                      if (liquidacion) await deleteAbono(liquidacion.id);
-                                      await updateApartado(ap.id, { estado: 'activo' });
-                                      cargar();
-                                    }}
+                                    disabled
                                     className="text-xs px-2 py-0.5 rounded-full font-medium transition-all"
-                                    style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
-                                    title="Toca para deshacer liquidación">
+                                    style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)', cursor: 'not-allowed', opacity: 0.6 }}
+                                    title="Liquidado">
                                     ✓ Liquidado
                                   </button>
                                 ) : (
@@ -871,10 +900,10 @@ export default function Apartados() {
                                       </span>
                                     )}
                                     <button
-                                      onClick={liquidarProducto}
+                                      onClick={() => setAbonarArticuloModal({ apartadoId: ap.id, nombre: ap.articulos?.nombre ?? '', precio: precio, pendiente: pendiente(ap) })}
                                       className="text-xs px-2 py-0.5 rounded-full font-semibold transition-all"
-                                      style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}>
-                                      Liquidar
+                                      style={{ backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.35)' }}>
+                                      💰 Abonar o Liquidar
                                     </button>
                                   </div>
                                 )}
@@ -1079,6 +1108,112 @@ export default function Apartados() {
           </div>
         </div>
       )}
+
+      {/* Modal: Abonar o Liquidar Artículo */}
+      {abonarArticuloModal && (() => {
+        // Encontrar el apartado y cliente de este artículo
+        const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+        const clienteApartado = apartadoActual?.cliente_nombre;
+        // Obtener saldos disponibles del cliente (abonos sin asignar)
+        const saldosDisponibles = clienteApartado
+          ? apartados
+              .filter(ap => ap.cliente_nombre === clienteApartado)
+              .flatMap(ap => ap.abonos ?? [])
+              .filter(ab => ab.apartado_id === null)
+          : [];
+        const totalSaldoGlobal = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
+        // Restar el fondo ya consumido (excluyendo abonos iniciales)
+        const fondoConsumido = clienteApartado
+          ? apartados
+              .filter(ap => ap.cliente_nombre === clienteApartado)
+              .flatMap(ap => ap.abonos ?? [])
+              .filter(ab => ab.apartado_id !== null && ab.nota !== 'ABONO INICIAL')
+              .reduce((s, ab) => s + ab.monto, 0)
+          : 0;
+        const totalSaldos = totalSaldoGlobal - fondoConsumido;
+        const puedeLiquidarConFondo = totalSaldos >= abonarArticuloModal.pendiente;
+        const montoActual = parseFloat(montoAbonarArticulo) || 0;
+        const montoLlenar = puedeLiquidarConFondo && montoAbonarArticulo === '' ? abonarArticuloModal.pendiente : montoActual;
+
+        return (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up overflow-y-auto" style={{ border: '1px solid #E8DDD0', maxHeight: '90vh' }}>
+              <h3 className="font-serif font-semibold text-text text-lg mb-3">{abonarArticuloModal.nombre}</h3>
+
+              {/* Info del artículo */}
+              <div className="text-sm text-text-light mb-4 flex gap-4">
+                <div>
+                  <span className="text-xs text-text-light">Precio</span>
+                  <div className="font-sans font-bold" style={{ color: '#7A6A62' }}>
+                    ${abonarArticuloModal.precio.toLocaleString('es-MX')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-text-light">Pendiente</span>
+                  <div className="font-sans font-bold" style={{ color: '#C4A49A' }}>
+                    ${abonarArticuloModal.pendiente.toLocaleString('es-MX')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Total de fondo disponible */}
+              {totalSaldos > 0 && (
+                <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid rgba(125,155,126,0.3)' }}>
+                  <p className="text-xs text-text-light mb-1">💰 Total de fondo recaudado</p>
+                  <div className="font-sans font-bold text-xl" style={{ color: '#7D9B7E' }}>
+                    ${totalSaldos.toLocaleString('es-MX')}
+                  </div>
+                </div>
+              )}
+
+<div className="mb-4">
+                <label className="text-xs font-medium text-text-light block mb-1">Cantidad a abonar *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
+                  <input
+                    type="number"
+                    value={puedeLiquidarConFondo && montoAbonarArticulo === '' ? abonarArticuloModal.pendiente : montoAbonarArticulo}
+                    onChange={e => { setMontoAbonarArticulo(e.target.value); setErrorAbonarArticulo(''); }}
+                    placeholder="0.00"
+                    autoFocus
+                    min="0.01"
+                    step="0.01"
+                    max={abonarArticuloModal.pendiente}
+                    className="w-full pl-6 pr-3 py-2.5 rounded-xl text-sm text-text focus:outline-none"
+                    style={{ border: `1px solid ${errorAbonarArticulo ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: puedeLiquidarConFondo ? 'rgba(125,155,126,0.08)' : 'white' }}
+                  />
+                </div>
+                {errorAbonarArticulo && (
+                  <p className="text-xs mt-1.5" style={{ color: '#DC2626' }}>{errorAbonarArticulo}</p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setAbonarArticuloModal(null); setMontoAbonarArticulo(''); setErrorAbonarArticulo(''); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm text-text-light"
+                  style={{ border: '1px solid #E8DDD0', backgroundColor: 'white' }}>
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => abonarArticulo(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                  style={{ backgroundColor: '#B8956A' }}>
+                  💰 Abonar
+                </button>
+                {(puedeLiquidarConFondo || parseFloat(montoAbonarArticulo) >= abonarArticuloModal.pendiente) && (
+                  <button
+                    onClick={() => abonarArticulo(true)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                    style={{ backgroundColor: '#7D9B7E' }}>
+                    ✓ Liquidar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: Menú de mensajes de WhatsApp */}
       {waApartado && (() => {

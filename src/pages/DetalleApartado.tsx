@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { type Apartado } from '../lib/supabase';
-import { getApartado, getApartadosFull, updateApartado, updateArticulo, deleteApartado, deleteAbono } from '../lib/dataService';
+import { getApartado, getApartadosFull, updateApartado, updateArticulo, deleteApartado, deleteAbono, insertAbono } from '../lib/dataService';
 import Header from '../components/Header';
 
 type WaTemplate = { id: string; emoji: string; titulo: string; cuerpo: string; esDefault?: boolean };
@@ -46,6 +46,7 @@ export default function DetalleApartado() {
   const [clienteAbonado, setClienteAbonado] = useState(0);
   const [confirmarLiquidar, setConfirmarLiquidar] = useState<{ falta: number } | null>(null);
   const [confirmarEntregar, setConfirmarEntregar] = useState(false);
+  const [confirmarEliminarAbono, setConfirmarEliminarAbono] = useState<string | null>(null);
   const [waVisible, setWaVisible] = useState(false);
   const [waTemplates, setWaTemplates] = useState<WaTemplate[]>(() => {
     try { const s = localStorage.getItem(WA_STORAGE_KEY); if (s) return JSON.parse(s); } catch {}
@@ -83,12 +84,24 @@ export default function DetalleApartado() {
   }, []);
 
 
-  const liquidar = () => {
+  const liquidar = async () => {
     if (clientePendiente > 0) {
       setConfirmarLiquidar({ falta: clientePendiente });
       return;
     }
-    updateApartado(id!, { estado: 'liquidado' }).then(cargar);
+    // Registrar abono por el monto pendiente del artículo
+    const pendiente = (apartado?.articulos?.precio_total ?? 0) - ((apartado?.abonos ?? []).filter(a => a.apartado_id === id).reduce((s, a) => s + a.monto, 0));
+    if (pendiente > 0) {
+      await insertAbono({
+        id: crypto.randomUUID(),
+        apartado_id: id!,
+        monto: pendiente,
+        nota: '',
+        created_at: new Date().toISOString()
+      });
+    }
+    await updateApartado(id!, { estado: 'liquidado' });
+    cargar();
   };
 
   const entregar = async () => {
@@ -265,19 +278,6 @@ export default function DetalleApartado() {
           {apartado.articulos?.descripcion && (
             <p className="text-xs text-text-light mb-3">{apartado.articulos.descripcion}</p>
           )}
-
-          {(() => {
-            const abonoInicial = (apartado.abonos ?? []).find(a => a.nota === 'ABONO INICIAL');
-            if (!abonoInicial) return null;
-            return (
-              <div className="flex items-center gap-1.5 mb-3 mt-1">
-                <span className="text-xs" style={{ color: '#7A6A62' }}>💵 Abono inicial:</span>
-                <span className="text-xs font-semibold" style={{ color: '#7D9B7E' }}>
-                  ${abonoInicial.monto.toLocaleString('es-MX')}
-                </span>
-              </div>
-            );
-          })()}
 
           {/* Datos cliente */}
           <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E8DDD0' }}>
@@ -485,16 +485,22 @@ export default function DetalleApartado() {
                 </span>
               </div>
               {abonos.map(ab => (
-                <div key={ab.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0" style={{ borderColor: '#E8DDD0' }}>
-                  <div>
+                <div key={ab.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0 gap-2" style={{ borderColor: '#E8DDD0' }}>
+                  <div className="flex-1">
                     <div className="text-xs" style={{ color: '#7A6A62' }}>
                       {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
                     {ab.nota && <div className="text-[11px] mt-0.5" style={{ color: '#B8956A' }}>{ab.nota}</div>}
                   </div>
-                  <span className="text-sm font-semibold font-sans" style={{ color: '#7D9B7E' }}>
+                  <span className="text-sm font-semibold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
                     +${ab.monto.toLocaleString('es-MX')}
                   </span>
+                  <button
+                    onClick={() => setConfirmarEliminarAbono(ab.id)}
+                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                    style={{ backgroundColor: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.3)' }}>
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
@@ -506,18 +512,10 @@ export default function DetalleApartado() {
           <div className="flex gap-2">
             {liquidado ? (
               <button
-                onClick={async () => {
-                  // El LIQUIDACIÓN está en este mismo producto
-                  const liquidacion = (apartado!.abonos ?? [])
-                    .filter(a => a.nota === 'LIQUIDACIÓN')
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-                  if (liquidacion) await deleteAbono(liquidacion.id);
-                  await updateApartado(id!, { estado: 'activo' });
-                  navigate(`/apartados?buscar=${encodeURIComponent(apartado!.cliente_nombre)}`);
-                }}
+                disabled
                 className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-all"
-                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)' }}
-                title="Toca para deshacer liquidación">
+                style={{ backgroundColor: 'rgba(125,155,126,0.12)', color: '#5C7A5D', border: '1px solid rgba(125,155,126,0.35)', cursor: 'not-allowed', opacity: 0.6 }}
+                title="Liquidado">
                 ✓ Liquidado
               </button>
             ) : (
@@ -788,6 +786,38 @@ export default function DetalleApartado() {
           </div>
         );
       })()}
+
+      {/* Modal eliminar abono */}
+      {confirmarEliminarAbono && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-up" style={{ border: '1px solid #E8DDD0' }}>
+            <h3 className="font-serif font-semibold text-text text-lg mb-2">¿Eliminar abono?</h3>
+            <p className="text-sm text-text-light mb-5">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmarEliminarAbono(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm text-text-light" style={{ border: '1px solid #E8DDD0' }}>
+                Cancelar
+              </button>
+              <button onClick={async () => {
+                await deleteAbono(confirmarEliminarAbono);
+                setConfirmarEliminarAbono(null);
+                // Si el apartado estaba liquidado y ahora tiene pendiente, volver a activo
+                const abonoEliminado = apartado?.abonos?.find(a => a.id === confirmarEliminarAbono);
+                if (abonoEliminado && apartado?.estado === 'liquidado') {
+                  const pendienteActual = (apartado?.articulos?.precio_total ?? 0) - ((apartado?.abonos ?? []).filter(a => a.id !== confirmarEliminarAbono && a.apartado_id === id).reduce((s, a) => s + a.monto, 0));
+                  if (pendienteActual > 0) {
+                    await updateApartado(id!, { estado: 'activo' });
+                  }
+                }
+                cargar();
+              }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#DC2626' }}>
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal eliminar */}
       {confirmarEliminar && (
