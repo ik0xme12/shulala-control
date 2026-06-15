@@ -82,13 +82,6 @@ export default function Apartados() {
   const totalAbonado = (ap: Apartado) =>
     (ap.abonos ?? []).filter(a => a.apartado_id === ap.id).reduce((s, a) => s + a.monto, 0);
 
-  const totalFondoCliente = (cliente: string) =>
-    apartados
-      .filter(ap => ap.cliente_nombre === cliente)
-      .flatMap(ap => ap.abonos ?? [])
-      .filter(a => a.apartado_id === null)
-      .reduce((s, a) => s + a.monto, 0);
-
   const porcentaje = (ap: Apartado) => {
     const precio = ap.articulos?.precio_total ?? 0;
     if (!precio) return 0;
@@ -239,17 +232,6 @@ export default function Apartados() {
 
     setErrorAbonarArticulo('');
     const now = new Date().toISOString();
-
-    // Calcular fondo disponible (abonos globales del cliente)
-    const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
-    const clienteApartado = apartadoActual?.cliente_nombre;
-    const saldosDisponibles = clienteApartado
-      ? apartados
-          .filter(ap => ap.cliente_nombre === clienteApartado)
-          .flatMap(ap => ap.abonos ?? [])
-          .filter(ab => ab.apartado_id === null)
-      : [];
-    const fondoDisponible = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
 
     // Registrar el abono completo en el artículo (se descuenta del fondo automáticamente en el cálculo)
     await insertAbono({
@@ -1132,8 +1114,6 @@ export default function Apartados() {
           : 0;
         const totalSaldos = totalSaldoGlobal - fondoConsumido;
         const puedeLiquidarConFondo = totalSaldos >= abonarArticuloModal.pendiente;
-        const montoActual = parseFloat(montoAbonarArticulo) || 0;
-        const montoLlenar = puedeLiquidarConFondo && montoAbonarArticulo === '' ? abonarArticuloModal.pendiente : montoActual;
 
         return (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">

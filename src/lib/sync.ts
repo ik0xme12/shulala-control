@@ -91,6 +91,7 @@ export async function consolidateSplitAbonos() {
   // Clave de agrupación: pago_id si existe, sino created_at exacto + cliente
   const grupos = new Map<string, typeof allAbonos>();
   for (const ab of allAbonos) {
+    if (!ab.apartado_id) continue;
     const ap = apMap.get(ab.apartado_id);
     if (!ap) continue;
     const clave = ab.pago_id
@@ -110,8 +111,8 @@ export async function consolidateSplitAbonos() {
     const total = items.reduce((s, ab) => s + ab.monto, 0);
 
     const sorted = items.slice().sort((a, b) => {
-      const tA = new Date(apMap.get(a.apartado_id)?.created_at ?? 0).getTime();
-      const tB = new Date(apMap.get(b.apartado_id)?.created_at ?? 0).getTime();
+      const tA = new Date(apMap.get(a.apartado_id!)?.created_at ?? 0).getTime();
+      const tB = new Date(apMap.get(b.apartado_id!)?.created_at ?? 0).getTime();
       return tA - tB;
     });
 
