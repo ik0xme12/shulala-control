@@ -1152,9 +1152,9 @@ export default function Apartados() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: '#7A6A62' }}>$</span>
                   <input
                     type="number"
-                    value={puedeLiquidarConFondo && montoAbonarArticulo === '' ? abonarArticuloModal.pendiente : montoAbonarArticulo}
+                    value={montoAbonarArticulo}
                     onChange={e => { setMontoAbonarArticulo(e.target.value); setErrorAbonarArticulo(''); }}
-                    placeholder="0.00"
+                    placeholder={puedeLiquidarConFondo ? abonarArticuloModal.pendiente.toString() : '0.00'}
                     autoFocus
                     min="0.01"
                     step="0.01"
