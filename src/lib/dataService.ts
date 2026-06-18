@@ -45,11 +45,32 @@ export async function getApartadosFull(): Promise<Apartado[]> {
   const artMap = new Map(articulos.map(a => [a.id, a]));
   const abonosMap = new Map<string, Abono[]>();
 
-  // Mapear abonos a su apartado (incluye fondos, que ahora se guardan en un apartado real del cliente)
+  // Mapear abonos asignados a su apartado
   for (const ab of abonos) {
     if (ab.apartado_id !== null) {
       if (!abonosMap.has(ab.apartado_id)) abonosMap.set(ab.apartado_id, []);
       abonosMap.get(ab.apartado_id)!.push(ab);
+    }
+  }
+
+  // Primer apartado de cada cliente (para anclar la visualización de sus fondos)
+  const primerApartadoPorCliente = new Map<string, string>();
+  for (const ap of apartados) {
+    if (!primerApartadoPorCliente.has(ap.cliente_nombre)) {
+      primerApartadoPorCliente.set(ap.cliente_nombre, ap.id);
+    }
+  }
+
+  // Fondos sin asignar (apartado_id = null, nota 'FONDO|<cliente>'): se re-asocian a su
+  // cliente solo para mostrarlos. En la BD siguen sin pertenecer a ningún producto.
+  for (const ab of abonos) {
+    if (ab.apartado_id === null && ab.nota && ab.nota.startsWith('FONDO|')) {
+      const cliente = ab.nota.slice('FONDO|'.length);
+      const apId = primerApartadoPorCliente.get(cliente);
+      if (apId) {
+        if (!abonosMap.has(apId)) abonosMap.set(apId, []);
+        abonosMap.get(apId)!.push(ab);
+      }
     }
   }
 
