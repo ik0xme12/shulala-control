@@ -161,20 +161,24 @@ export async function updateArticulo(id: string, data: { nombre?: string; precio
 export async function insertAbono(abono: Abono) {
   try {
     await db.abonos.put(abono);
-    console.log('✓ Abono guardado en IndexedDB:', abono);
+    console.log('✓ Abono guardado en IndexedDB:', abono.id);
   } catch (error) {
-    console.error('✗ Error guardando abono en IndexedDB:', error, abono);
+    console.error('✗ Error guardando abono en IndexedDB:', error);
     throw error;
   }
 
-  // Solo enviar campos que existen en Supabase
-  const abonoSupabase = {
+  // Solo enviar campos que existen en Supabase (sin valores undefined)
+  const abonoSupabase: Record<string, unknown> = {
     id: abono.id,
-    apartado_id: abono.apartado_id,
     monto: abono.monto,
     nota: abono.nota,
     created_at: abono.created_at,
   };
+
+  if (abono.apartado_id !== undefined) {
+    abonoSupabase.apartado_id = abono.apartado_id;
+  }
+
   await writeSupabase('abonos', 'insert', abonoSupabase);
 }
 
