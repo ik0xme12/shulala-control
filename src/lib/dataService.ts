@@ -65,15 +65,14 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Todos los fondos sin asignar se muestran en el primer apartado
+  // Todos los fondos sin asignar
   const saldosSinAsignar = abonos.filter(ab => ab.apartado_id === null);
-  const primerApartadoId = apartados.length > 0 ? apartados[0].id : null;
-  console.log(`Total fondos sin asignar: ${saldosSinAsignar.length}, asignados al apartado: ${primerApartadoId}`);
+  console.log(`Total fondos sin asignar: ${saldosSinAsignar.length}`);
 
   return apartados.map(ap => {
     const abonosDelApartado = abonosMap.get(ap.id) ?? [];
-    // Solo agregar fondos sin asignar al PRIMER apartado (evita duplicación)
-    const saldosDelCliente = ap.id === primerApartadoId ? saldosSinAsignar : [];
+    // Agregar fondos sin asignar solo al primer apartado de CADA cliente
+    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? saldosSinAsignar : [];
 
     return {
       ...ap,
