@@ -59,11 +59,18 @@ export async function getApartadosFull(): Promise<Apartado[]> {
   }
 
   // Agrupar saldos sin asignar por cliente
+  const saldosSinAsignar = abonos.filter(ab => ab.apartado_id === null);
+  if (saldosSinAsignar.length > 0) {
+    console.log('Abonos sin asignar:', saldosSinAsignar);
+  }
   for (const ab of abonos) {
     if (ab.apartado_id === null && ab.cliente_nombre) {
       if (!saldosPorCliente.has(ab.cliente_nombre)) saldosPorCliente.set(ab.cliente_nombre, []);
       saldosPorCliente.get(ab.cliente_nombre)!.push(ab);
     }
+  }
+  if (saldosPorCliente.size > 0) {
+    console.log('Saldos agrupados por cliente:', Array.from(saldosPorCliente.entries()));
   }
 
   // Encontrar el primer apartado de cada cliente
