@@ -41,15 +41,11 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     db.articulos.toArray(),
     db.abonos.toArray(),
   ]);
-  console.log(`📊 getApartadosFull: ${apartados.length} apartados, ${abonos.length} abonos`);
-  if (abonos.length > 0) {
-    console.log('Abonos en IndexedDB:', abonos);
-  }
 
   const artMap = new Map(articulos.map(a => [a.id, a]));
   const abonosMap = new Map<string, Abono[]>();
 
-  // Mapear abonos asignados a apartados
+  // Mapear abonos a su apartado (incluye fondos, que ahora se guardan en un apartado real del cliente)
   for (const ab of abonos) {
     if (ab.apartado_id !== null) {
       if (!abonosMap.has(ab.apartado_id)) abonosMap.set(ab.apartado_id, []);
@@ -57,29 +53,11 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Encontrar el primer apartado de cada cliente
-  const primerApartadoPorCliente = new Map<string, string>();
-  for (const ap of apartados) {
-    if (!primerApartadoPorCliente.has(ap.cliente_nombre)) {
-      primerApartadoPorCliente.set(ap.cliente_nombre, ap.id);
-    }
-  }
-
-  // Todos los fondos sin asignar
-  const saldosSinAsignar = abonos.filter(ab => ab.apartado_id === null);
-  console.log(`Total fondos sin asignar: ${saldosSinAsignar.length}`);
-
-  return apartados.map(ap => {
-    const abonosDelApartado = abonosMap.get(ap.id) ?? [];
-    // Agregar fondos sin asignar solo al primer apartado de CADA cliente
-    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? saldosSinAsignar : [];
-
-    return {
-      ...ap,
-      articulos: artMap.get(ap.articulo_id),
-      abonos: [...abonosDelApartado, ...saldosDelCliente],
-    } as Apartado;
-  });
+  return apartados.map(ap => ({
+    ...ap,
+    articulos: artMap.get(ap.articulo_id),
+    abonos: abonosMap.get(ap.id) ?? [],
+  } as Apartado));
 }
 
 export async function getApartado(id: string): Promise<Apartado | null> {
@@ -159,26 +137,15 @@ export async function updateArticulo(id: string, data: { nombre?: string; precio
 }
 
 export async function insertAbono(abono: Abono) {
-  try {
-    await db.abonos.put(abono);
-    console.log('✓ Abono guardado en IndexedDB:', abono.id);
-  } catch (error) {
-    console.error('✗ Error guardando abono en IndexedDB:', error);
-    throw error;
-  }
-
-  // Solo enviar campos que existen en Supabase (sin valores undefined)
+  await db.abonos.put(abono);
+  // Solo enviar campos que existen en Supabase
   const abonoSupabase: Record<string, unknown> = {
     id: abono.id,
+    apartado_id: abono.apartado_id,
     monto: abono.monto,
     nota: abono.nota,
     created_at: abono.created_at,
   };
-
-  if (abono.apartado_id !== undefined) {
-    abonoSupabase.apartado_id = abono.apartado_id;
-  }
-
   await writeSupabase('abonos', 'insert', abonoSupabase);
 }
 

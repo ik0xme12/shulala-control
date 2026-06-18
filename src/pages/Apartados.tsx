@@ -80,7 +80,7 @@ export default function Apartados() {
   useEffect(() => { cargar(); }, [filtro, syncReady]);
 
   const totalAbonado = (ap: Apartado) =>
-    (ap.abonos ?? []).filter(a => a.apartado_id === ap.id).reduce((s, a) => s + a.monto, 0);
+    (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && a.nota !== 'FONDO').reduce((s, a) => s + a.monto, 0);
 
   const porcentaje = (ap: Apartado) => {
     const precio = ap.articulos?.precio_total ?? 0;
@@ -212,8 +212,15 @@ export default function Apartados() {
       setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`);
       return;
     }
+    // El fondo se guarda en un apartado real del cliente (preferir uno activo) con nota 'FONDO'
+    // para que la asociación al cliente sobreviva la sincronización con Supabase.
+    const apartadoFondo = apartadosActivos[0] ?? cliente.apartados[0];
+    if (!apartadoFondo) {
+      setErrorAbonoCliente('El cliente no tiene artículos');
+      return;
+    }
     const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString();
-    await insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now, cliente_nombre: cliente.nombre });
+    await insertAbono({ id: crypto.randomUUID(), apartado_id: apartadoFondo.id, monto: m, nota: 'FONDO', created_at: now });
     setSeleccionarArticuloClienteKey(null);
     setMontoAbonoCliente('');
     setFechaAbonoCliente('');
@@ -230,15 +237,14 @@ export default function Apartados() {
     if (liquidar && !montoIngresado) {
       const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
       const clienteApartado = apartadoActual?.cliente_nombre;
-      const saldosDisponibles = clienteApartado
+      const abonosCliente = clienteApartado
         ? apartados
             .filter(ap => ap.cliente_nombre === clienteApartado)
             .flatMap(ap => ap.abonos ?? [])
-            .filter(ab => ab.apartado_id === null)
         : [];
-      const totalSaldoGlobal = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
-      const abonosEspecificos = apartadoActual ? (apartadoActual.abonos ?? []).filter(a => a.apartado_id === apartadoActual.id).reduce((s, a) => s + a.monto, 0) : 0;
-      const totalSaldos = totalSaldoGlobal - abonosEspecificos;
+      const totalFondo = abonosCliente.filter(ab => ab.nota === 'FONDO').reduce((s, ab) => s + ab.monto, 0);
+      const fondoConsumido = abonosCliente.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
+      const totalSaldos = totalFondo - fondoConsumido;
       if (totalSaldos >= abonarArticuloModal.pendiente) {
         monto = abonarArticuloModal.pendiente;
       }
@@ -1096,22 +1102,14 @@ export default function Apartados() {
         // Encontrar el apartado y cliente de este artículo
         const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
         const clienteApartado = apartadoActual?.cliente_nombre;
-        // Obtener saldos disponibles del cliente (abonos sin asignar)
-        const saldosDisponibles = clienteApartado
+        // Fondo del cliente: depósitos (FONDO) menos lo ya consumido (CONSUMO FONDO)
+        const abonosCliente = clienteApartado
           ? apartados
               .filter(ap => ap.cliente_nombre === clienteApartado)
               .flatMap(ap => ap.abonos ?? [])
-              .filter(ab => ab.apartado_id === null)
           : [];
-        const totalSaldoGlobal = saldosDisponibles.reduce((s, ab) => s + ab.monto, 0);
-        // Restar el fondo ya consumido (excluyendo abonos iniciales)
-        const fondoConsumido = clienteApartado
-          ? apartados
-              .filter(ap => ap.cliente_nombre === clienteApartado)
-              .flatMap(ap => ap.abonos ?? [])
-              .filter(ab => ab.apartado_id !== null && ab.nota !== 'ABONO INICIAL')
-              .reduce((s, ab) => s + ab.monto, 0)
-          : 0;
+        const totalSaldoGlobal = abonosCliente.filter(ab => ab.nota === 'FONDO').reduce((s, ab) => s + ab.monto, 0);
+        const fondoConsumido = abonosCliente.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
         const totalSaldos = totalSaldoGlobal - fondoConsumido;
         const puedeLiquidarConFondo = totalSaldos >= abonarArticuloModal.pendiente;
 
