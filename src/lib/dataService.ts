@@ -23,7 +23,11 @@ async function writeSupabase(
       q = q.delete();
       for (const [c, v] of Object.entries(where ?? {})) q = q.eq(c, v);
     }
-    await q;
+    try {
+      await q;
+    } catch (error) {
+      console.error(`Error writing to Supabase (${table} ${op}):`, error, 'payload:', payload);
+    }
   } else {
     await db.sync_queue.add({ table, op, payload, where, ts: new Date().toISOString() });
   }
