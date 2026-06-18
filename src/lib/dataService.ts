@@ -66,18 +66,10 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Encontrar el primer apartado de cada cliente
-  const primerApartadoPorCliente = new Map<string, string>();
-  for (const ap of apartados) {
-    if (!primerApartadoPorCliente.has(ap.cliente_nombre)) {
-      primerApartadoPorCliente.set(ap.cliente_nombre, ap.id);
-    }
-  }
-
   return apartados.map(ap => {
     const abonosDelApartado = abonosMap.get(ap.id) ?? [];
-    // Solo agregar saldos al primer apartado del cliente
-    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? (saldosPorCliente.get(ap.cliente_nombre) ?? []) : [];
+    // Agregar saldos del cliente a TODOS sus apartados (no solo al primero)
+    const saldosDelCliente = saldosPorCliente.get(ap.cliente_nombre) ?? [];
 
     return {
       ...ap,
