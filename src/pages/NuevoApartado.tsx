@@ -70,6 +70,23 @@ export default function NuevoApartado() {
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
+  // Lista de artículos agregados (todos comparten cliente, lugar y notas)
+  type ArticuloItem = { nombre: string; precio: string; abono: string; fecha: string };
+  const [articulos, setArticulos] = useState<ArticuloItem[]>([]);
+
+  const agregarArticulo = () => {
+    if (!form.nombre.trim() || !form.precio_total) { setError('Completa nombre y precio del artículo'); return; }
+    const precio = parseFloat(form.precio_total);
+    if (isNaN(precio) || precio <= 0) { setError('El precio debe ser mayor a 0'); return; }
+    const abono = parseFloat(form.abono_inicial || '0');
+    if (abono < 0 || abono > precio) { setError('El abono inicial no puede ser mayor al precio'); return; }
+    setArticulos(a => [...a, { nombre: form.nombre, precio: form.precio_total, abono: form.abono_inicial, fecha: form.dias_limite }]);
+    setForm(f => ({ ...f, nombre: '', precio_total: '', abono_inicial: '', dias_limite: '' }));
+    setError('');
+  };
+
+  const quitarArticulo = (i: number) => setArticulos(a => a.filter((_, idx) => idx !== i));
+
   const seleccionarCliente = (c: ClienteSugerido) => {
     setForm(f => ({ ...f, cliente_nombre: c.nombre, cliente_tel: c.tel }));
     setClienteSeleccionado(c);
@@ -78,23 +95,41 @@ export default function NuevoApartado() {
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.nombre || !form.precio_total || !form.cliente_nombre) { setError('Completa los campos obligatorios'); return; }
-    const precio = parseFloat(form.precio_total);
-    const abonoInicial = parseFloat(form.abono_inicial || '0');
-    if (isNaN(precio) || precio <= 0) { setError('El precio debe ser mayor a 0'); return; }
-    if (abonoInicial < 0 || abonoInicial > precio) { setError('El abono inicial no puede ser mayor al precio'); return; }
-    setGuardando(true); setError('');
-    const now = new Date().toISOString();
-    const artId = crypto.randomUUID();
-    const apId = crypto.randomUUID();
+    if (!form.cliente_nombre) { setError('Completa el cliente'); return; }
 
+    // Lista final: los agregados + la entrada actual si tiene nombre y precio
+    const lista = [...articulos];
+    if (form.nombre.trim() && form.precio_total) {
+      lista.push({ nombre: form.nombre, precio: form.precio_total, abono: form.abono_inicial, fecha: form.dias_limite });
+    }
+    if (lista.length === 0) { setError('Agrega al menos un artículo'); return; }
+
+    // Validar cada artículo
+    for (const it of lista) {
+      const p = parseFloat(it.precio);
+      const ab = parseFloat(it.abono || '0');
+      if (isNaN(p) || p <= 0) { setError('Cada artículo debe tener precio mayor a 0'); return; }
+      if (ab < 0 || ab > p) { setError('El abono inicial no puede ser mayor al precio'); return; }
+    }
+
+    setGuardando(true); setError('');
     try {
-      await insertArticuloYApartado(
-        { id: artId, nombre: form.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
-        { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: (() => { if (!form.dias_limite) return null; const hoy = new Date(); hoy.setHours(0,0,0,0); const limite = new Date(form.dias_limite + 'T00:00:00'); return Math.round((limite.getTime() - hoy.getTime()) / 86400000); })(), lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
-      );
-      if (abonoInicial > 0) {
-        await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abonoInicial, nota: 'ABONO INICIAL', created_at: now });
+      for (const it of lista) {
+        const now = new Date().toISOString();
+        const artId = crypto.randomUUID();
+        const apId = crypto.randomUUID();
+        const precio = parseFloat(it.precio);
+        const diasLimite = it.fecha
+          ? (() => { const hoy = new Date(); hoy.setHours(0,0,0,0); const limite = new Date(it.fecha + 'T00:00:00'); return Math.round((limite.getTime() - hoy.getTime()) / 86400000); })()
+          : null;
+        await insertArticuloYApartado(
+          { id: artId, nombre: it.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
+          { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: diasLimite, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
+        );
+        const abono = parseFloat(it.abono || '0');
+        if (abono > 0) {
+          await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abono, nota: 'ABONO INICIAL', created_at: now });
+        }
       }
       navigate(`/apartados?buscar=${encodeURIComponent(form.cliente_nombre.toUpperCase())}`);
     } catch {
@@ -162,6 +197,31 @@ export default function NuevoApartado() {
               )}
             </div>
 
+            {/* Lista de artículos agregados */}
+            {articulos.length > 0 && (
+              <div className="px-4 py-3" style={{ borderBottom: '1px solid #E8DDD0', backgroundColor: 'rgba(125,155,126,0.05)' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#7A6A62' }}>
+                  Artículos ({articulos.length})
+                </div>
+                <div className="space-y-1.5">
+                  {articulos.map((it, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+                      style={{ backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
+                      <span className="text-sm font-serif text-text truncate flex-1 min-w-0">{it.nombre.toUpperCase()}</span>
+                      <span className="text-sm font-sans font-semibold shrink-0" style={{ color: '#7A6A62' }}>
+                        ${parseFloat(it.precio || '0').toLocaleString('es-MX')}
+                      </span>
+                      <button type="button" onClick={() => quitarArticulo(i)}
+                        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs"
+                        style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Artículo + Precio */}
             <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
@@ -194,6 +254,15 @@ export default function NuevoApartado() {
                 className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '9rem', color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
+            </div>
+
+            {/* Agregar artículo a la lista */}
+            <div className="px-4 pb-3 -mt-1" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <button type="button" onClick={agregarArticulo}
+                className="text-xs font-medium transition-all"
+                style={{ color: '#B8956A' }}>
+                + Agregar otro artículo
+              </button>
             </div>
 
             {/* Lugar de entrega */}
@@ -244,11 +313,16 @@ export default function NuevoApartado() {
             </div>
           )}
 
-          <button type="submit" disabled={guardando}
-            className="w-full py-3.5 rounded-xl font-semibold tracking-widest uppercase text-sm text-white transition-all disabled:opacity-60"
-            style={{ backgroundColor: '#7D9B7E' }}>
-            {guardando ? 'Guardando...' : 'Crear Apartado'}
-          </button>
+          {(() => {
+            const total = articulos.length + (form.nombre.trim() && form.precio_total ? 1 : 0);
+            return (
+              <button type="submit" disabled={guardando}
+                className="w-full py-3.5 rounded-xl font-semibold tracking-widest uppercase text-sm text-white transition-all disabled:opacity-60"
+                style={{ backgroundColor: '#7D9B7E' }}>
+                {guardando ? 'Guardando...' : total > 1 ? `Crear ${total} Apartados` : 'Crear Apartado'}
+              </button>
+            );
+          })()}
         </form>
       </main>
     </div>
