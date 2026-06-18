@@ -48,7 +48,6 @@ export async function getApartadosFull(): Promise<Apartado[]> {
 
   const artMap = new Map(articulos.map(a => [a.id, a]));
   const abonosMap = new Map<string, Abono[]>();
-  const saldosPorCliente = new Map<string, Abono[]>();
 
   // Mapear abonos asignados a apartados
   for (const ab of abonos) {
