@@ -35,19 +35,28 @@ export default function NuevoApartado() {
 
   useEffect(() => {
     getApartadosFull().then(data => {
-      const mapa = new Map<string, ClienteSugerido>();
+      type Acc = ClienteSugerido & { apartados: typeof data };
+      const mapa = new Map<string, Acc>();
       for (const ap of data) {
         const key = ap.cliente_nombre;
-        if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0 });
+        if (!mapa.has(key)) mapa.set(key, { nombre: ap.cliente_nombre, tel: ap.cliente_tel ?? '', pendiente: 0, numApartados: 0, apartados: [] });
+        const c = mapa.get(key)!;
+        c.apartados.push(ap);
         if (ap.estado === 'activo') {
-          const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+          // Pagos al producto (excluye fondos): abonos en este apartado que no son FONDO
+          const pagadoProducto = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
           const precio = ap.articulos?.precio_total ?? 0;
-          const c = mapa.get(key)!;
-          c.pendiente += precio - abonado;
+          c.pendiente += precio - pagadoProducto;
           c.numApartados++;
         }
       }
-      const lista = Array.from(mapa.values());
+      // Restar el fondo disponible (depósitos no asignados) del pendiente del cliente
+      const lista: ClienteSugerido[] = Array.from(mapa.values()).map(c => {
+        const todos = c.apartados.flatMap(ap => ap.abonos ?? []);
+        const fondo = todos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+        const consumido = todos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
+        return { nombre: c.nombre, tel: c.tel, numApartados: c.numApartados, pendiente: Math.max(0, c.pendiente - (fondo - consumido)) };
+      });
       setTodosClientes(lista);
       if (clienteParam) {
         const encontrado = lista.find(c => c.nombre === clienteParam.toUpperCase());

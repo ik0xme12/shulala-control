@@ -122,7 +122,15 @@ export default function Apartados() {
         c.pendiente += pendiente(ap);
       }
     }
-    return Array.from(mapa.values()).sort((a, b) => b.pendiente - a.pendiente);
+    // Restar el fondo disponible (depósitos no asignados): el fondo reduce el
+    // pendiente del cliente aunque no se haya asignado a un producto todavía.
+    return Array.from(mapa.values()).map(c => {
+      const todos = c.apartados.flatMap(ap => ap.abonos ?? []);
+      const fondo = todos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+      const consumido = todos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
+      const fondoDisponible = fondo - consumido;
+      return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible) };
+    }).sort((a, b) => b.pendiente - a.pendiente);
   })();
 
   const resumenClientesHistorial = (() => {
