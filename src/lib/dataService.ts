@@ -53,11 +53,16 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Primer apartado de cada cliente (para anclar la visualización de sus fondos)
-  const primerApartadoPorCliente = new Map<string, string>();
+  // Apartado donde anclar la visualización de los fondos de cada cliente.
+  // Se prefiere un apartado visible en la vista activa (no entregado+liquidado)
+  // para que el fondo no quede oculto. Clave normalizada (trim) por robustez.
+  const anclaPorCliente = new Map<string, { id: string; visible: boolean }>();
   for (const ap of apartados) {
-    if (!primerApartadoPorCliente.has(ap.cliente_nombre)) {
-      primerApartadoPorCliente.set(ap.cliente_nombre, ap.id);
+    const key = (ap.cliente_nombre ?? '').trim();
+    const visible = !(ap.entregado && ap.estado === 'liquidado');
+    const cur = anclaPorCliente.get(key);
+    if (!cur || (!cur.visible && visible)) {
+      anclaPorCliente.set(key, { id: ap.id, visible });
     }
   }
 
@@ -65,11 +70,11 @@ export async function getApartadosFull(): Promise<Apartado[]> {
   // cliente solo para mostrarlos. En la BD siguen sin pertenecer a ningún producto.
   for (const ab of abonos) {
     if (ab.apartado_id === null && ab.nota && ab.nota.startsWith('FONDO|')) {
-      const cliente = ab.nota.slice('FONDO|'.length);
-      const apId = primerApartadoPorCliente.get(cliente);
-      if (apId) {
-        if (!abonosMap.has(apId)) abonosMap.set(apId, []);
-        abonosMap.get(apId)!.push(ab);
+      const cliente = ab.nota.slice('FONDO|'.length).trim();
+      const ancla = anclaPorCliente.get(cliente);
+      if (ancla) {
+        if (!abonosMap.has(ancla.id)) abonosMap.set(ancla.id, []);
+        abonosMap.get(ancla.id)!.push(ab);
       }
     }
   }
