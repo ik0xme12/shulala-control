@@ -156,8 +156,15 @@ export async function updateArticulo(id: string, data: { nombre?: string; precio
 
 export async function insertAbono(abono: Abono) {
   await db.abonos.put(abono);
-  const { cliente_nombre, ...abonoSupabase } = abono;
-  await writeSupabase('abonos', 'insert', abonoSupabase as Record<string, unknown>);
+  // Solo enviar campos que existen en Supabase
+  const abonoSupabase = {
+    id: abono.id,
+    apartado_id: abono.apartado_id,
+    monto: abono.monto,
+    nota: abono.nota,
+    created_at: abono.created_at,
+  };
+  await writeSupabase('abonos', 'insert', abonoSupabase);
 }
 
 export async function updateAbono(id: string, data: Partial<Abono>) {
