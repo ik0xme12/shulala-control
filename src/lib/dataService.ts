@@ -159,7 +159,14 @@ export async function updateArticulo(id: string, data: { nombre?: string; precio
 }
 
 export async function insertAbono(abono: Abono) {
-  await db.abonos.put(abono);
+  try {
+    await db.abonos.put(abono);
+    console.log('✓ Abono guardado en IndexedDB:', abono);
+  } catch (error) {
+    console.error('✗ Error guardando abono en IndexedDB:', error, abono);
+    throw error;
+  }
+
   // Solo enviar campos que existen en Supabase
   const abonoSupabase = {
     id: abono.id,
