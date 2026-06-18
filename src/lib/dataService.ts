@@ -58,21 +58,6 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Agrupar saldos sin asignar por cliente
-  const saldosSinAsignar = abonos.filter(ab => ab.apartado_id === null);
-  if (saldosSinAsignar.length > 0) {
-    console.log('Abonos sin asignar:', saldosSinAsignar);
-  }
-  for (const ab of abonos) {
-    if (ab.apartado_id === null && ab.cliente_nombre) {
-      if (!saldosPorCliente.has(ab.cliente_nombre)) saldosPorCliente.set(ab.cliente_nombre, []);
-      saldosPorCliente.get(ab.cliente_nombre)!.push(ab);
-    }
-  }
-  if (saldosPorCliente.size > 0) {
-    console.log('Saldos agrupados por cliente:', Array.from(saldosPorCliente.entries()));
-  }
-
   // Encontrar el primer apartado de cada cliente
   const primerApartadoPorCliente = new Map<string, string>();
   for (const ap of apartados) {
@@ -81,10 +66,15 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
+  // Todos los fondos sin asignar se muestran en el primer apartado
+  const saldosSinAsignar = abonos.filter(ab => ab.apartado_id === null);
+  const primerApartadoId = apartados.length > 0 ? apartados[0].id : null;
+  console.log(`Total fondos sin asignar: ${saldosSinAsignar.length}, asignados al apartado: ${primerApartadoId}`);
+
   return apartados.map(ap => {
     const abonosDelApartado = abonosMap.get(ap.id) ?? [];
-    // Solo agregar saldos al primer apartado del cliente (para evitar duplicados)
-    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? (saldosPorCliente.get(ap.cliente_nombre) ?? []) : [];
+    // Solo agregar fondos sin asignar al PRIMER apartado (evita duplicación)
+    const saldosDelCliente = ap.id === primerApartadoId ? saldosSinAsignar : [];
 
     return {
       ...ap,
