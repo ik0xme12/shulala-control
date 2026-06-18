@@ -41,6 +41,11 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     db.articulos.toArray(),
     db.abonos.toArray(),
   ]);
+  console.log(`📊 getApartadosFull: ${apartados.length} apartados, ${abonos.length} abonos`);
+  if (abonos.length > 0) {
+    console.log('Abonos en IndexedDB:', abonos);
+  }
+
   const artMap = new Map(articulos.map(a => [a.id, a]));
   const abonosMap = new Map<string, Abono[]>();
   const saldosPorCliente = new Map<string, Abono[]>();
