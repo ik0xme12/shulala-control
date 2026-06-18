@@ -88,7 +88,9 @@ export async function getApartado(id: string): Promise<Apartado | null> {
   ]);
   if (!ap) return null;
   const articulo = await db.articulos.get(ap.articulo_id);
-  return { ...ap, articulos: articulo, abonos } as Apartado;
+  // Excluir fondos: un producto nunca muestra fondos del cliente en su detalle
+  const abonosProducto = abonos.filter(a => !(a.nota ?? '').startsWith('FONDO'));
+  return { ...ap, articulos: articulo, abonos: abonosProducto } as Apartado;
 }
 
 export async function getTandasFull(): Promise<Tanda[]> {
