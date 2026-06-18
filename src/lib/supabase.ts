@@ -36,6 +36,7 @@ export type Abono = {
   nota: string;
   created_at: string;
   pago_id?: string | null;
+  cliente_nombre?: string;
 };
 
 export type Tanda = {

@@ -39,13 +39,21 @@ export async function getApartadosFull(): Promise<Apartado[]> {
   ]);
   const artMap = new Map(articulos.map(a => [a.id, a]));
   const abonosMap = new Map<string, Abono[]>();
-  const saldosDisponibles = abonos.filter(ab => ab.apartado_id === null);
+  const saldosPorCliente = new Map<string, Abono[]>();
 
   // Mapear abonos asignados a apartados
   for (const ab of abonos) {
     if (ab.apartado_id !== null) {
       if (!abonosMap.has(ab.apartado_id)) abonosMap.set(ab.apartado_id, []);
       abonosMap.get(ab.apartado_id)!.push(ab);
+    }
+  }
+
+  // Agrupar saldos sin asignar por cliente
+  for (const ab of abonos) {
+    if (ab.apartado_id === null && ab.cliente_nombre) {
+      if (!saldosPorCliente.has(ab.cliente_nombre)) saldosPorCliente.set(ab.cliente_nombre, []);
+      saldosPorCliente.get(ab.cliente_nombre)!.push(ab);
     }
   }
 
@@ -60,7 +68,7 @@ export async function getApartadosFull(): Promise<Apartado[]> {
   return apartados.map(ap => {
     const abonosDelApartado = abonosMap.get(ap.id) ?? [];
     // Solo agregar saldos al primer apartado del cliente
-    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? saldosDisponibles : [];
+    const saldosDelCliente = primerApartadoPorCliente.get(ap.cliente_nombre) === ap.id ? (saldosPorCliente.get(ap.cliente_nombre) ?? []) : [];
 
     return {
       ...ap,

@@ -605,7 +605,7 @@ export default function Apartados() {
                                 autoFocus
                                 min="0.01"
                                 step="0.01"
-                                onKeyDown={e => { if (e.key === 'Enter') { const m = parseFloat(montoAbonoCliente); if (m <= 0) return; const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo'); const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0); const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0); const pendienteReal = totalArticulos - abonosEspecificos; if (m > pendienteReal) { setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`); return; } const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString(); insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now }).then(() => { setSeleccionarArticuloClienteKey(null); setMontoAbonoCliente(''); setFechaAbonoCliente(''); setErrorAbonoCliente(''); cargar(); }); } }}
+                                onKeyDown={e => { if (e.key === 'Enter') { const m = parseFloat(montoAbonoCliente); if (m <= 0) return; const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo'); const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0); const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0); const pendienteReal = totalArticulos - abonosEspecificos; if (m > pendienteReal) { setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`); return; } const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString(); insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now, cliente_nombre: c.nombre }).then(() => { setSeleccionarArticuloClienteKey(null); setMontoAbonoCliente(''); setFechaAbonoCliente(''); setErrorAbonoCliente(''); cargar(); }); } }}
                                 className="w-full pl-6 pr-3 py-2 rounded-lg text-sm text-text focus:outline-none"
                                 style={{ border: `1px solid ${errorAbonoCliente ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
                             </div>
@@ -632,7 +632,7 @@ export default function Apartados() {
                                   return;
                                 }
                                 const now = fechaAbonoCliente ? new Date(fechaAbonoCliente + 'T12:00:00').toISOString() : new Date().toISOString();
-                                insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now }).then(() => {
+                                insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto: m, nota: '', created_at: now, cliente_nombre: c.nombre }).then(() => {
                                   setSeleccionarArticuloClienteKey(null);
                                   setMontoAbonoCliente('');
                                   setFechaAbonoCliente('');
