@@ -68,6 +68,15 @@ export default function Apartados() {
   const cargar = async () => {
     setCargando(true);
     const data = await getApartadosFull();
+    // Auto-liquidar productos activos totalmente pagados (pendiente <= 0)
+    for (const ap of data) {
+      const precio = ap.articulos?.precio_total ?? 0;
+      const pagado = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+      if (ap.estado === 'activo' && precio > 0 && pagado >= precio) {
+        ap.estado = 'liquidado';
+        await updateApartado(ap.id, { estado: 'liquidado' });
+      }
+    }
     const ordenados = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     if (filtro === 'liquidado') {
       setApartados(ordenados.filter(ap => !!ap.entregado));
