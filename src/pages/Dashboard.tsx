@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useRef, useState } from 'react';
-import { exportarDatos, importarDatos } from '../lib/dataService';
+import { exportarDatos, importarDatos, getRespaldosAuto } from '../lib/dataService';
 
 const menuItems = [
   {
@@ -76,6 +76,21 @@ export default function Dashboard() {
     setTimeout(() => setRespaldoMsg(''), 5000);
   };
 
+  const respaldosAuto = getRespaldosAuto();
+  const ultimoAuto = respaldosAuto[0];
+
+  const restaurarAuto = async () => {
+    if (!ultimoAuto) return;
+    if (!window.confirm(`¿Restaurar el respaldo automático del ${new Date(ultimoAuto.date).toLocaleString('es-MX')}? Se reescribirán los datos actuales.`)) return;
+    try {
+      await importarDatos(ultimoAuto.data);
+      setRespaldoMsg('✓ Respaldo automático restaurado');
+    } catch (err) {
+      setRespaldoMsg('✗ ' + (err instanceof Error ? err.message : 'Error al restaurar'));
+    }
+    setTimeout(() => setRespaldoMsg(''), 5000);
+  };
+
   return (
     <div className="flex flex-col bg-transparent" style={{ height: '100dvh' }}>
       <div className="flex-1 flex flex-col w-full max-w-sm mx-auto" style={{ padding: '2vh 1rem', minHeight: 0 }}>
@@ -140,6 +155,13 @@ export default function Dashboard() {
           </button>
           <input ref={fileRef} type="file" accept="application/json" onChange={importar} className="hidden" />
         </div>
+        {ultimoAuto && (
+          <div className="shrink-0 mt-1 flex items-center justify-center gap-2 text-[11px]" style={{ color: '#9A8A82' }}>
+            <span>🛡️ Respaldo auto: {new Date(ultimoAuto.date).toLocaleDateString('es-MX')}</span>
+            <span style={{ color: '#E8DDD0' }}>|</span>
+            <button onClick={restaurarAuto} className="font-medium" style={{ color: '#7D9B7E' }}>Restaurar</button>
+          </div>
+        )}
         {respaldoMsg && (
           <div className="shrink-0 mt-1 text-center text-xs" style={{ color: respaldoMsg.startsWith('✓') ? '#5C7A5D' : '#DC2626' }}>
             {respaldoMsg}

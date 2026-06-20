@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { pullAll, syncOnReconnect, flushQueue } from './lib/sync';
+import { autoRespaldoSemanal } from './lib/dataService';
 import { SyncContext } from './lib/SyncContext';
 import Dashboard from './pages/Dashboard';
 import Apartados from './pages/Apartados';
@@ -21,6 +22,8 @@ export default function App() {
         await pullAll();
       }
       setSyncReady(true);
+      // Respaldo automático semanal (no hace nada si no toca todavía)
+      autoRespaldoSemanal();
     };
     init();
 

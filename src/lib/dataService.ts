@@ -144,6 +144,37 @@ export async function importarDatos(data: any) {
   }
 }
 
+// ─── respaldo automático semanal (en localStorage) ──────────────────────────
+const AUTO_KEY = 'shulala_auto_backups';
+const AUTO_LAST = 'shulala_auto_backup_last';
+const UNA_SEMANA = 7 * 24 * 60 * 60 * 1000;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RespaldoAuto = { date: string; data: any };
+
+export function getRespaldosAuto(): RespaldoAuto[] {
+  try { return JSON.parse(localStorage.getItem(AUTO_KEY) || '[]'); } catch { return []; }
+}
+
+// Crea un respaldo si pasaron 7+ días desde el último. Nunca respalda vacío
+// (para no pisar un buen respaldo si los datos se perdieran). Conserva los 2 últimos.
+export async function autoRespaldoSemanal() {
+  try {
+    const last = localStorage.getItem(AUTO_LAST);
+    if (last && Date.now() - new Date(last).getTime() < UNA_SEMANA) return;
+    const data = await exportarDatos();
+    const tieneDatos = (data.articulos?.length || data.apartados?.length || data.abonos?.length);
+    if (!tieneDatos) return;
+    const arr = getRespaldosAuto();
+    arr.unshift({ date: new Date().toISOString(), data });
+    while (arr.length > 2) arr.pop();
+    localStorage.setItem(AUTO_KEY, JSON.stringify(arr));
+    localStorage.setItem(AUTO_LAST, new Date().toISOString());
+  } catch (e) {
+    console.error('autoRespaldoSemanal error:', e);
+  }
+}
+
 export async function getTandasFull(): Promise<Tanda[]> {
   const [tandas, participantes, pagos] = await Promise.all([
     db.tanda.toArray(),
