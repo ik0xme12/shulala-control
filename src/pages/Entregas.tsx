@@ -111,13 +111,13 @@ export default function Entregas() {
         {/* Filtros */}
         <div className="grid grid-cols-5 gap-1.5 animate-slide-up">
           {([
-            { key: 'activo',       label: 'Activos',      count: activoCount,      color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
-            { key: 'pendiente',    label: 'Por entregar', count: pendienteCount,   color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
-            { key: 'vencido',      label: 'Vencidos',     count: vencidoCount,     color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   border: '#DC2626' },
-            { key: 'entregado',    label: 'Entregados',   count: entregadoCount,   color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
-            { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#9A7A70', bg: 'rgba(154,122,112,0.10)', border: '#9A7A70' },
+            { key: 'activo',       label: 'Activos',      count: activoCount,      color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A', desc: 'En pago: aún no liquidados ni entregados (dentro del plazo)' },
+            { key: 'pendiente',    label: 'Por entregar', count: pendienteCount,   color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A', desc: 'Liquidados y listos para entregar al cliente' },
+            { key: 'vencido',      label: 'Vencidos',     count: vencidoCount,     color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   border: '#DC2626', desc: 'No entregados con el plazo límite ya vencido' },
+            { key: 'entregado',    label: 'Entregados',   count: entregadoCount,   color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E', desc: 'Productos ya entregados al cliente' },
+            { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#9A7A70', bg: 'rgba(154,122,112,0.10)', border: '#9A7A70', desc: 'Entregados pero sin haberse liquidado por completo' },
           ] as const).map(f => (
-            <button key={f.key} onClick={() => setFiltro(f.key)}
+            <button key={f.key} onClick={() => setFiltro(f.key)} title={f.desc}
               className="rounded-xl px-1 py-2 text-center transition-all"
               style={filtro === f.key
                 ? { backgroundColor: f.bg, border: `2px solid ${f.border}` }
