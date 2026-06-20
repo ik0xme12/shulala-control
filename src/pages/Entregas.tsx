@@ -272,7 +272,7 @@ function FilaApartado({ ap, clienteTel, entregando, onToggle }: {
           )}
         </div>
         {ap.estado === 'activo' && (() => {
-          const abonado = (ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
+          const abonado = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
           const total = ap.articulos?.precio_total ?? 0;
           const pct = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
           return (
