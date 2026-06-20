@@ -98,6 +98,52 @@ export async function getApartado(id: string): Promise<Apartado | null> {
   return { ...ap, articulos: articulo, abonos: abonosProducto } as Apartado;
 }
 
+// ─── respaldo (export / import) ────────────────────────────────────────────
+export async function exportarDatos() {
+  const [articulos, apartados, abonos, tanda, tanda_participantes, tanda_pagos] = await Promise.all([
+    db.articulos.toArray(),
+    db.apartados.toArray(),
+    db.abonos.toArray(),
+    db.tanda.toArray(),
+    db.tanda_participantes.toArray(),
+    db.tanda_pagos.toArray(),
+  ]);
+  return { version: 1, exportedAt: new Date().toISOString(), articulos, apartados, abonos, tanda, tanda_participantes, tanda_pagos };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function importarDatos(data: any) {
+  const tablas: [string, any[]][] = [
+    ['articulos', data.articulos ?? []],
+    ['apartados', data.apartados ?? []],
+    ['abonos', data.abonos ?? []],
+    ['tanda', data.tanda ?? []],
+    ['tanda_participantes', data.tanda_participantes ?? []],
+    ['tanda_pagos', data.tanda_pagos ?? []],
+  ];
+  // 1) Guardar en IndexedDB
+  await db.transaction('rw', [db.articulos, db.apartados, db.abonos, db.tanda, db.tanda_participantes, db.tanda_pagos], async () => {
+    if (data.articulos?.length) await db.articulos.bulkPut(data.articulos);
+    if (data.apartados?.length) await db.apartados.bulkPut(data.apartados);
+    if (data.abonos?.length) await db.abonos.bulkPut(data.abonos);
+    if (data.tanda?.length) await db.tanda.bulkPut(data.tanda);
+    if (data.tanda_participantes?.length) await db.tanda_participantes.bulkPut(data.tanda_participantes);
+    if (data.tanda_pagos?.length) await db.tanda_pagos.bulkPut(data.tanda_pagos);
+  });
+  // 2) Subir a Supabase (upsert). Para abonos se limpian campos que no existen en la tabla.
+  if (online()) {
+    for (const [tabla, filas] of tablas) {
+      if (!filas.length) continue;
+      const payload = tabla === 'abonos'
+        ? filas.map(a => ({ id: a.id, apartado_id: a.apartado_id, monto: a.monto, nota: a.nota, created_at: a.created_at, ...(a.pago_id !== undefined ? { pago_id: a.pago_id } : {}) }))
+        : filas;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from(tabla as any) as any).upsert(payload);
+      if (error) throw new Error(`Error subiendo ${tabla}: ${error.message}`);
+    }
+  }
+}
+
 export async function getTandasFull(): Promise<Tanda[]> {
   const [tandas, participantes, pagos] = await Promise.all([
     db.tanda.toArray(),

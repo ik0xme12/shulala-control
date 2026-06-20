@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { exportarDatos, importarDatos } from '../lib/dataService';
 
 const menuItems = [
   {
@@ -40,6 +42,40 @@ const menuItems = [
 ];
 
 export default function Dashboard() {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [respaldoMsg, setRespaldoMsg] = useState('');
+
+  const exportar = async () => {
+    try {
+      const data = await exportarDatos();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shulala-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setRespaldoMsg('✓ Respaldo descargado');
+    } catch {
+      setRespaldoMsg('✗ Error al exportar');
+    }
+    setTimeout(() => setRespaldoMsg(''), 4000);
+  };
+
+  const importar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      await importarDatos(data);
+      setRespaldoMsg('✓ Datos importados');
+    } catch (err) {
+      setRespaldoMsg('✗ ' + (err instanceof Error ? err.message : 'Archivo inválido'));
+    }
+    if (fileRef.current) fileRef.current.value = '';
+    setTimeout(() => setRespaldoMsg(''), 5000);
+  };
+
   return (
     <div className="flex flex-col bg-transparent" style={{ height: '100dvh' }}>
       <div className="flex-1 flex flex-col w-full max-w-sm mx-auto" style={{ padding: '2vh 1rem', minHeight: 0 }}>
@@ -92,6 +128,23 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+
+        {/* Respaldo */}
+        <div className="shrink-0 mt-3 flex items-center justify-center gap-4">
+          <button onClick={exportar} className="text-xs font-medium" style={{ color: '#7A6A62' }}>
+            ⬇️ Exportar respaldo
+          </button>
+          <span style={{ color: '#E8DDD0' }}>|</span>
+          <button onClick={() => fileRef.current?.click()} className="text-xs font-medium" style={{ color: '#7A6A62' }}>
+            ⬆️ Importar
+          </button>
+          <input ref={fileRef} type="file" accept="application/json" onChange={importar} className="hidden" />
+        </div>
+        {respaldoMsg && (
+          <div className="shrink-0 mt-1 text-center text-xs" style={{ color: respaldoMsg.startsWith('✓') ? '#5C7A5D' : '#DC2626' }}>
+            {respaldoMsg}
+          </div>
+        )}
 
       </div>
     </div>

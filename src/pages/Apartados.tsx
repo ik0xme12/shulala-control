@@ -284,6 +284,18 @@ export default function Apartados() {
       setErrorAbonarArticulo(`El monto supera la deuda ($${abonarArticuloModal.pendiente.toLocaleString('es-MX')})`);
       return;
     }
+    // Validar que haya suficiente fondo disponible para asignar
+    {
+      const apActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+      const abonosCli = apActual ? apartados.filter(ap => ap.cliente_nombre === apActual.cliente_nombre).flatMap(ap => ap.abonos ?? []) : [];
+      const totalFondo = abonosCli.filter(ab => (ab.nota ?? '').startsWith('FONDO')).reduce((s, ab) => s + ab.monto, 0);
+      const consumido = abonosCli.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
+      const fondoDisponible = totalFondo - consumido;
+      if (monto > fondoDisponible) {
+        setErrorAbonarArticulo(`Fondo disponible: $${fondoDisponible.toLocaleString('es-MX')}. Registra primero un abono con "+ Abonar".`);
+        return;
+      }
+    }
 
     setErrorAbonarArticulo('');
     const now = new Date().toISOString();
@@ -1043,10 +1055,19 @@ export default function Apartados() {
                 Cancelar
               </button>
               <button onClick={async () => {
-                if (confirmarEliminarAbono.grupo) {
-                  await Promise.all(confirmarEliminarAbono.grupo.map(g => deleteAbono(g.id)));
-                } else {
-                  await deleteAbono(confirmarEliminarAbono.abonoId);
+                const afectados = confirmarEliminarAbono.grupo ?? [{ id: confirmarEliminarAbono.abonoId, apartadoId: confirmarEliminarAbono.apartadoId }];
+                await Promise.all(afectados.map(g => deleteAbono(g.id)));
+                // Revertir a 'activo' productos liquidados que ahora tengan pendiente
+                const apIds = [...new Set(afectados.map(g => g.apartadoId).filter(Boolean) as string[])];
+                if (apIds.length) {
+                  const fresh = await getApartadosFull();
+                  for (const apId of apIds) {
+                    const ap = fresh.find(a => a.id === apId);
+                    if (!ap || ap.estado !== 'liquidado') continue;
+                    const precio = ap.articulos?.precio_total ?? 0;
+                    const pagado = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+                    if (pagado < precio) await updateApartado(apId, { estado: 'activo' });
+                  }
                 }
                 setConfirmarEliminarAbono(null);
                 cargar();

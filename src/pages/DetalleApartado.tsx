@@ -63,11 +63,19 @@ export default function DetalleApartado() {
     setApartado(data);
     if (data) {
       const todos = await getApartadosFull();
-      const deCliente = todos.filter(ap => ap.cliente_nombre === data.cliente_nombre && !ap.entregado);
-      const totalCliente = deCliente.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
-      const abonadoCliente = deCliente.flatMap(ap => ap.abonos ?? []).reduce((s, a) => s + a.monto, 0);
-      setClientePendiente(totalCliente - abonadoCliente);
-      setClienteAbonado(abonadoCliente);
+      const delCliente = todos.filter(ap => ap.cliente_nombre === data.cliente_nombre);
+      const activos = delCliente.filter(ap => !ap.entregado);
+      const totalCliente = activos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
+      // Pagos a productos (excluye fondos), solo de productos activos
+      const pagadoProductos = activos.reduce((s, ap) =>
+        s + (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((x, a) => x + a.monto, 0), 0);
+      // Fondo disponible del cliente (depósitos - consumido), sin doble conteo
+      const todosAbonos = delCliente.flatMap(ap => ap.abonos ?? []);
+      const fondo = todosAbonos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+      const consumido = todosAbonos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
+      const pend = Math.max(0, totalCliente - pagadoProductos - (fondo - consumido));
+      setClientePendiente(pend);
+      setClienteAbonado(totalCliente - pend);
     }
     setCargando(false);
   };
