@@ -117,13 +117,20 @@ export default function Entregas() {
             { key: 'entregado',    label: 'Entregados',   count: entregadoCount,   color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E', desc: 'Productos ya entregados al cliente' },
             { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#9A7A70', bg: 'rgba(154,122,112,0.10)', border: '#9A7A70', desc: 'Entregados pero sin haberse liquidado por completo' },
           ] as const).map(f => (
-            <button key={f.key} onClick={() => setFiltro(f.key)} title={f.desc}
-              className="rounded-xl px-1 py-2 text-center transition-all"
+            <button key={f.key} onClick={() => setFiltro(f.key)}
+              className="group relative rounded-xl px-1 py-2 text-center transition-all"
               style={filtro === f.key
                 ? { backgroundColor: f.bg, border: `2px solid ${f.border}` }
                 : { backgroundColor: 'white', border: '1px solid #E8DDD0' }}>
               <div className="font-sans font-bold text-base tracking-tight" style={{ color: f.color }}>{f.count}</div>
               <div className="text-[10px] text-text-light mt-0.5 leading-tight">{f.label}</div>
+              <span
+                className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-36 rounded-lg px-2.5 py-1.5 text-[11px] leading-snug opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-30 shadow-lg"
+                style={{ backgroundColor: '#2C2422', color: '#F5EFE6' }}>
+                {f.desc}
+                <span className="absolute left-1/2 -translate-x-1/2 top-full"
+                  style={{ borderWidth: '5px', borderStyle: 'solid', borderColor: '#2C2422 transparent transparent transparent' }} />
+              </span>
             </button>
           ))}
         </div>
