@@ -24,32 +24,24 @@ export default function Entregas() {
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [entregando, setEntregando] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'entregado' | 'sin_liquidar'>('pendiente');
+  const [filtro, setFiltro] = useState<'activo' | 'pendiente' | 'vencido' | 'entregado' | 'sin_liquidar'>('pendiente');
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const syncReady = useSyncReady();
 
   const cargar = async () => {
     setCargando(true);
     const data = await getApartadosFull();
-
-    // Auto-finalizar: liquidado + no entregado + días límite vencidos
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const aFinalizar = data.filter(ap => {
-      if (ap.estado !== 'liquidado' || !!ap.entregado || !ap.dias_limite) return false;
-      const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
-      const diasTranscurridos = Math.floor((hoy.getTime() - creado.getTime()) / 86400000);
-      return diasTranscurridos > ap.dias_limite;
-    });
-    if (aFinalizar.length > 0) {
-      await Promise.all(aFinalizar.map(ap => updateApartado(ap.id, { entregado: true })));
-      // Recargar con datos actualizados
-      const actualizado = await getApartadosFull();
-      setApartados(actualizado.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    } else {
-      setApartados(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    }
-
+    setApartados(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     setCargando(false);
+  };
+
+  // Vencido: no entregado y con plazo límite ya pasado
+  const esVencido = (ap: Apartado) => {
+    if (ap.entregado || !ap.dias_limite) return false;
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
+    const diasTranscurridos = Math.floor((hoy.getTime() - creado.getTime()) / 86400000);
+    return diasTranscurridos > ap.dias_limite;
   };
 
   const prevFiltro = useRef(filtro);
@@ -68,16 +60,18 @@ export default function Entregas() {
     cargar();
   };
 
-  const activoCount      = apartados.filter(a => a.estado === 'activo' && !a.entregado).length;
-  const pendienteCount   = apartados.filter(a => a.estado === 'liquidado' && !a.entregado).length;
+  const activoCount      = apartados.filter(a => a.estado === 'activo' && !a.entregado && !esVencido(a)).length;
+  const pendienteCount   = apartados.filter(a => a.estado === 'liquidado' && !a.entregado && !esVencido(a)).length;
+  const vencidoCount     = apartados.filter(a => esVencido(a)).length;
   const entregadoCount   = apartados.filter(a => !!a.entregado).length;
   const sinLiquidarCount = apartados.filter(a => !!a.entregado && a.estado !== 'liquidado').length;
 
   const filtrados = apartados.filter(ap => {
-    if (filtro === 'activo')       return ap.estado === 'activo' && !ap.entregado;
+    if (filtro === 'activo')       return ap.estado === 'activo' && !ap.entregado && !esVencido(ap);
+    if (filtro === 'vencido')      return esVencido(ap);
     if (filtro === 'entregado')    return !!ap.entregado;
     if (filtro === 'sin_liquidar') return !!ap.entregado && ap.estado !== 'liquidado';
-    return ap.estado === 'liquidado' && !ap.entregado;
+    return ap.estado === 'liquidado' && !ap.entregado && !esVencido(ap);
   });
 
   const q = busqueda.trim().toLowerCase();
@@ -115,12 +109,13 @@ export default function Entregas() {
       <main className="max-w-2xl mx-auto px-4 py-5 space-y-4 animate-fade-in">
 
         {/* Filtros */}
-        <div className="grid grid-cols-4 gap-2 animate-slide-up">
+        <div className="grid grid-cols-3 gap-2 animate-slide-up">
           {([
             { key: 'activo',       label: 'Activos',      count: activoCount,      color: '#C4A49A', bg: 'rgba(196,164,154,0.12)', border: '#C4A49A' },
             { key: 'pendiente',    label: 'Por entregar', count: pendienteCount,   color: '#B8956A', bg: 'rgba(184,149,106,0.12)', border: '#B8956A' },
+            { key: 'vencido',      label: 'Vencidos',     count: vencidoCount,     color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   border: '#DC2626' },
             { key: 'entregado',    label: 'Entregados',   count: entregadoCount,   color: '#7D9B7E', bg: 'rgba(125,155,126,0.12)', border: '#7D9B7E' },
-            { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#DC2626', bg: 'rgba(220,38,38,0.08)',   border: '#DC2626' },
+            { key: 'sin_liquidar', label: 'Sin liquidar', count: sinLiquidarCount, color: '#9A7A70', bg: 'rgba(154,122,112,0.10)', border: '#9A7A70' },
           ] as const).map(f => (
             <button key={f.key} onClick={() => setFiltro(f.key)}
               className="rounded-2xl p-2.5 text-center transition-all"
