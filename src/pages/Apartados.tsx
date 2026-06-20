@@ -193,9 +193,11 @@ export default function Apartados() {
       const limite = new Date(formProducto.fecha + 'T00:00:00');
       return Math.round((limite.getTime() - hoy.getTime()) / 86400000);
     })();
+    // Si el abono inicial cubre el precio, el producto nace liquidado
+    const liquidado = abono >= precio;
     await insertArticuloYApartado(
       { id: artId, nombre: formProducto.nombre.trim().toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
-      { id: apId, articulo_id: artId, cliente_nombre: c.nombre, cliente_tel: c.tel || null, notas: '', dias_limite: diasLimite, lugar_entrega: formProducto.lugar.trim().toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
+      { id: apId, articulo_id: artId, cliente_nombre: c.nombre, cliente_tel: c.tel || null, notas: '', dias_limite: diasLimite, lugar_entrega: formProducto.lugar.trim().toUpperCase() || null, estado: liquidado ? 'liquidado' : 'activo', entregado: false, created_at: now },
     );
     if (abono > 0) {
       await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abono, nota: 'ABONO INICIAL', created_at: now });
@@ -234,6 +236,17 @@ export default function Apartados() {
 
   const abonarArticulo = async (liquidar: boolean = false) => {
     if (!abonarArticuloModal) return;
+
+    // Si ya no hay pendiente, liquidar directamente sin registrar abono
+    if (liquidar && abonarArticuloModal.pendiente <= 0) {
+      await updateApartado(abonarArticuloModal.apartadoId, { estado: 'liquidado' });
+      setAbonarArticuloModal(null);
+      setMontoAbonarArticulo('');
+      setErrorAbonarArticulo('');
+      cargar();
+      return;
+    }
+
     const montoIngresado = montoAbonarArticulo.trim();
     let monto = parseFloat(montoIngresado);
 

@@ -146,7 +146,7 @@ export async function getTanda(id: string): Promise<Tanda | null> {
 
 export async function insertArticuloYApartado(
   articulo: { id: string; nombre: string; descripcion: string; precio_total: number; imagen_url: null; created_at: string },
-  apartado: { id: string; articulo_id: string; cliente_nombre: string; cliente_tel: string | null; notas: string; dias_limite: number | null; lugar_entrega: string | null; estado: 'activo'; entregado: boolean; created_at: string },
+  apartado: { id: string; articulo_id: string; cliente_nombre: string; cliente_tel: string | null; notas: string; dias_limite: number | null; lugar_entrega: string | null; estado: 'activo' | 'liquidado'; entregado: boolean; created_at: string },
 ) {
   await db.articulos.put(articulo);
   await db.apartados.put(apartado);

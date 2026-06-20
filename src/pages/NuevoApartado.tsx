@@ -128,14 +128,16 @@ export default function NuevoApartado() {
         const artId = crypto.randomUUID();
         const apId = crypto.randomUUID();
         const precio = parseFloat(it.precio);
+        const abono = parseFloat(it.abono || '0');
+        // Si el abono inicial cubre el precio, el producto nace liquidado
+        const liquidado = abono >= precio;
         const diasLimite = it.fecha
           ? (() => { const hoy = new Date(); hoy.setHours(0,0,0,0); const limite = new Date(it.fecha + 'T00:00:00'); return Math.round((limite.getTime() - hoy.getTime()) / 86400000); })()
           : null;
         await insertArticuloYApartado(
           { id: artId, nombre: it.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
-          { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: diasLimite, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: 'activo', entregado: false, created_at: now },
+          { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: diasLimite, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: liquidado ? 'liquidado' : 'activo', entregado: false, created_at: now },
         );
-        const abono = parseFloat(it.abono || '0');
         if (abono > 0) {
           await insertAbono({ id: crypto.randomUUID(), apartado_id: apId, monto: abono, nota: 'ABONO INICIAL', created_at: now });
         }
