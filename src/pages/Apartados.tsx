@@ -578,7 +578,7 @@ export default function Apartados() {
               const expandido = q ? true : clienteExpandido === c.nombre;
               return (
                 <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden card-hover" style={{ border: '1px solid #E8DDD0' }}>
-                  <div className="p-4">
+                  <div className="px-4 py-2.5">
                     <div className="flex items-center justify-between gap-3">
                       <button className="flex-1 min-w-0 text-left"
                         onClick={() => !q && setClienteExpandido(clienteExpandido === c.nombre ? null : c.nombre)}>
