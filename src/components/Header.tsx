@@ -66,7 +66,7 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
         {/* Izquierda: Shulalá (solo en secciones principales) */}
         {!backTo && (
           <div>
-            <div className="font-logo font-bold text-4xl leading-none" style={{ color: '#2C2422', letterSpacing: '0.01em' }}>Shulalá</div>
+            <div className="font-logo font-bold text-4xl leading-none inline-block" style={{ color: '#2C2422', letterSpacing: '0.01em', transform: 'scaleX(1.2)', transformOrigin: 'left center' }}>Shulalá</div>
             <div className="text-xs tracking-widest uppercase leading-tight" style={{ color: '#B8956A' }}>Boutique Control</div>
           </div>
         )}
