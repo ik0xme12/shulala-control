@@ -570,7 +570,7 @@ export default function Apartados() {
           </div>
         ) : (
           /* Vista por cliente */
-          <div className="space-y-3 animate-fade-in">
+          <div className="space-y-1.5 animate-fade-in">
             {clientesFiltrados.length === 0 && q && (
               <p className="text-center text-sm py-8 font-serif" style={{ color: '#7A6A62' }}>Sin resultados para "{busqueda}"</p>
             )}
