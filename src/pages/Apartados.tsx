@@ -284,30 +284,27 @@ export default function Apartados() {
       setErrorAbonarArticulo(`El monto supera la deuda ($${abonarArticuloModal.pendiente.toLocaleString('es-MX')})`);
       return;
     }
-    // Validar que haya suficiente fondo disponible para asignar
-    {
-      const apActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
-      const abonosCli = apActual ? apartados.filter(ap => ap.cliente_nombre === apActual.cliente_nombre).flatMap(ap => ap.abonos ?? []) : [];
-      const totalFondo = abonosCli.filter(ab => (ab.nota ?? '').startsWith('FONDO')).reduce((s, ab) => s + ab.monto, 0);
-      const consumido = abonosCli.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
-      const fondoDisponible = totalFondo - consumido;
-      if (monto > fondoDisponible) {
-        setErrorAbonarArticulo(`Fondo disponible: $${fondoDisponible.toLocaleString('es-MX')}. Registra primero un abono con "+ Abonar".`);
-        return;
-      }
-    }
 
     setErrorAbonarArticulo('');
     const now = new Date().toISOString();
 
-    // Registrar el abono completo en el artículo (se descuenta del fondo automáticamente en el cálculo)
-    await insertAbono({
-      id: crypto.randomUUID(),
-      apartado_id: abonarArticuloModal.apartadoId,
-      monto,
-      nota: 'CONSUMO FONDO',
-      created_at: now
-    });
+    // Dividir el pago: lo que cubre el fondo disponible se marca CONSUMO FONDO
+    // (oculto, porque ese dinero ya se mostró al depositarlo). El resto es dinero
+    // nuevo y se registra como abono normal que SÍ aparece en la lista.
+    const apActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+    const abonosCli = apActual ? apartados.filter(ap => ap.cliente_nombre === apActual.cliente_nombre).flatMap(ap => ap.abonos ?? []) : [];
+    const totalFondo = abonosCli.filter(ab => (ab.nota ?? '').startsWith('FONDO')).reduce((s, ab) => s + ab.monto, 0);
+    const fondoConsumido = abonosCli.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
+    const fondoDisponible = Math.max(0, totalFondo - fondoConsumido);
+    const montoDeFondo = Math.min(monto, fondoDisponible);
+    const montoDirecto = monto - montoDeFondo;
+
+    if (montoDeFondo > 0) {
+      await insertAbono({ id: crypto.randomUUID(), apartado_id: abonarArticuloModal.apartadoId, monto: montoDeFondo, nota: 'CONSUMO FONDO', created_at: now });
+    }
+    if (montoDirecto > 0) {
+      await insertAbono({ id: crypto.randomUUID(), apartado_id: abonarArticuloModal.apartadoId, monto: montoDirecto, nota: '', created_at: now });
+    }
 
     // Si se selecciona liquidar, cambiar estado a liquidado
     if (liquidar) {
