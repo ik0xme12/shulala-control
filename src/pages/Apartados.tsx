@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { type Apartado } from '../lib/supabase';
+import { type Apartado, type Abono } from '../lib/supabase';
 import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono, deleteAbono } from '../lib/dataService';
 import { useSyncReady } from '../lib/SyncContext';
 import Header from '../components/Header';
@@ -35,6 +35,7 @@ export default function Apartados() {
   };
 
   const [apartados, setApartados] = useState<Apartado[]>([]);
+  const [apartadosFull, setApartadosFull] = useState<Apartado[]>([]);
   const [cargando, setCargando] = useState(true);
   const filtro: 'activo' | 'liquidado' = esHistorial ? 'liquidado' : 'activo';
   const [historialSubFiltro, setHistorialSubFiltro] = useState<'todos' | 'sin_liquidar'>('todos');
@@ -78,6 +79,7 @@ export default function Apartados() {
       }
     }
     const ordenados = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    setApartadosFull(ordenados);
     if (filtro === 'liquidado') {
       setApartados(ordenados.filter(ap => !!ap.entregado));
     } else {
@@ -99,6 +101,41 @@ export default function Apartados() {
 
   const pendiente = (ap: Apartado) =>
     (ap.articulos?.precio_total ?? 0) - totalAbonado(ap);
+
+  // Protección anti-huérfanos: si un cliente tiene más CONSUMO FONDO que fondo
+  // depositado (p. ej. al borrar un depósito), reclasifica el excedente a pago
+  // directo (nota ''), para que ese dinero ya aplicado al producto no se pierda.
+  const repararHuerfanos = async (fresh: Apartado[]) => {
+    const fondoCli = new Map<string, number>();
+    const consumoCli = new Map<string, Abono[]>();
+    for (const ap of fresh) {
+      for (const ab of (ap.abonos ?? [])) {
+        if ((ab.nota ?? '').startsWith('FONDO')) {
+          fondoCli.set(ap.cliente_nombre, (fondoCli.get(ap.cliente_nombre) ?? 0) + ab.monto);
+        } else if (ab.nota === 'CONSUMO FONDO') {
+          if (!consumoCli.has(ap.cliente_nombre)) consumoCli.set(ap.cliente_nombre, []);
+          consumoCli.get(ap.cliente_nombre)!.push(ab);
+        }
+      }
+    }
+    for (const [cli, lista] of consumoCli) {
+      const f = fondoCli.get(cli) ?? 0;
+      let need = lista.reduce((s, a) => s + a.monto, 0) - f;
+      if (need <= 0.0001) continue;
+      lista.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      for (const ab of lista) {
+        if (need <= 0.0001) break;
+        if (ab.monto <= need + 0.0001) {
+          await updateAbono(ab.id, { nota: '' });
+          need -= ab.monto;
+        } else {
+          await updateAbono(ab.id, { monto: ab.monto - need });
+          await insertAbono({ id: crypto.randomUUID(), apartado_id: ab.apartado_id, monto: need, nota: '', created_at: ab.created_at });
+          need = 0;
+        }
+      }
+    }
+  };
 
   // Solo activos para estadísticas y vista de lista
   const soloActivos = apartados.filter(ap => ap.estado === 'activo');
@@ -133,11 +170,13 @@ export default function Apartados() {
     }
     // Restar el fondo disponible (depósitos no asignados): el fondo reduce el
     // pendiente del cliente aunque no se haya asignado a un producto todavía.
+    // Se calcula sobre TODOS los productos del cliente (incluidos entregados),
+    // para descontar correctamente el fondo ya consumido en productos ocultos.
     return Array.from(mapa.values()).map(c => {
-      const todos = c.apartados.flatMap(ap => ap.abonos ?? []);
+      const todos = apartadosFull.filter(ap => ap.cliente_nombre === c.nombre).flatMap(ap => ap.abonos ?? []);
       const fondo = todos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
       const consumido = todos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
-      const fondoDisponible = fondo - consumido;
+      const fondoDisponible = Math.max(0, fondo - consumido);
       return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible) };
     }).sort((a, b) => b.pendiente - a.pendiente);
   })();
@@ -223,12 +262,10 @@ export default function Apartados() {
       setErrorAbonoCliente('Ingresa un monto válido');
       return;
     }
-    const apartadosActivos = cliente.apartados.filter(ap => ap.estado === 'activo');
-    const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
-    const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0);
-    const pendienteReal = totalArticulos - abonosEspecificos;
+    // Tope = pendiente real del cliente (ya descuenta el fondo depositado)
+    const pendienteReal = cliente.pendiente;
     if (m > pendienteReal) {
-      setErrorAbonoCliente(`El monto supera la deuda total ($${pendienteReal.toLocaleString('es-MX')})`);
+      setErrorAbonoCliente(`El monto supera la deuda pendiente ($${pendienteReal.toLocaleString('es-MX')})`);
       return;
     }
     // El fondo NO se asigna a ningún producto (apartado_id = null). El cliente se
@@ -660,12 +697,7 @@ export default function Apartados() {
                                 type="number"
                                 value={montoAbonoCliente}
                                 onChange={e => { setMontoAbonoCliente(e.target.value); setErrorAbonoCliente(''); }}
-                                placeholder={`Máx $${(() => {
-                                  const apartadosActivos = c.apartados.filter(ap => ap.estado === 'activo');
-                                  const totalArticulos = apartadosActivos.reduce((s, ap) => s + (ap.articulos?.precio_total ?? 0), 0);
-                                  const abonosEspecificos = apartadosActivos.reduce((s, ap) => s + totalAbonado(ap), 0);
-                                  return (totalArticulos - abonosEspecificos).toLocaleString('es-MX');
-                                })()}`}
+                                placeholder={`Máx $${c.pendiente.toLocaleString('es-MX')}`}
                                 autoFocus
                                 min="0.01"
                                 step="0.01"
@@ -795,6 +827,14 @@ export default function Apartados() {
                             new Date(b[0].created_at).getTime() - new Date(a[0].created_at).getTime()
                           );
                         })();
+                        // Asignaciones de fondo (CONSUMO FONDO): se muestran aparte y NO suman
+                        const asignaciones = c.apartados
+                          .flatMap(ap => (ap.abonos ?? []))
+                          .filter(ab => ab.nota === 'CONSUMO FONDO')
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                        const apNombre = new Map(c.apartados.map(ap => [ap.id, ap.articulos?.nombre ?? '']));
+                        const etiquetaAbono = (nota: string) =>
+                          (nota ?? '').startsWith('FONDO') ? 'Depósito a fondo' : nota === 'ABONO INICIAL' ? 'Abono inicial' : nota === 'LIQUIDACIÓN' ? 'Liquidación' : 'Pago';
                         return (
                           <div className="animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
                             <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'rgba(125,155,126,0.06)', borderBottom: '1px solid #E8DDD0' }}>
@@ -861,8 +901,11 @@ export default function Apartados() {
                                           onClick={() => { if (!esGrupo) { setEditandoAbonoId(ab.id); setEditFechaAbono(ab.created_at.split('T')[0]); setEditMontoAbono(String(ab.monto)); } }}>
                                           <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
                                             style={{ backgroundColor: '#7D9B7E' }}>$</div>
-                                          <div className="flex-1 text-xs font-medium" style={{ color: '#5C7A5D' }}>
-                                            {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-medium" style={{ color: '#5C7A5D' }}>
+                                              {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </div>
+                                            <div className="text-[10px]" style={{ color: '#9A8A82' }}>{etiquetaAbono(ab.nota)}</div>
                                           </div>
                                           <div className="text-base font-bold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
                                             +${montoGrupo.toLocaleString('es-MX')}
@@ -882,6 +925,38 @@ export default function Apartados() {
                                   </div>
                                   );
                                 })}
+                              </div>
+                            )}
+                            {asignaciones.length > 0 && (
+                              <div className="px-3 pb-2 pt-2 border-t" style={{ borderColor: '#E8DDD0' }}>
+                                <div className="text-[10px] uppercase tracking-wide mb-1.5 px-1" style={{ color: '#9A8A82' }}>
+                                  Asignaciones de fondo · no suman
+                                </div>
+                                <div className="space-y-1.5">
+                                  {asignaciones.map(ab => (
+                                    <div key={ab.id} className="rounded-xl px-3 py-2 flex items-center gap-2"
+                                      style={{ backgroundColor: 'rgba(184,149,106,0.06)', border: '1px solid rgba(184,149,106,0.18)' }}>
+                                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                                        style={{ backgroundColor: 'rgba(184,149,106,0.2)', color: '#B8956A' }}>↪</div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium truncate" style={{ color: '#9A7A55' }}>
+                                          Asignado a {apNombre.get(ab.apartado_id ?? '') || 'producto'}
+                                        </div>
+                                        <div className="text-[10px]" style={{ color: '#9A8A82' }}>
+                                          {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm font-semibold font-sans shrink-0" style={{ color: '#B8956A' }}>
+                                        ${ab.monto.toLocaleString('es-MX')}
+                                      </div>
+                                      <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
+                                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                                        style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1054,17 +1129,17 @@ export default function Apartados() {
               <button onClick={async () => {
                 const afectados = confirmarEliminarAbono.grupo ?? [{ id: confirmarEliminarAbono.abonoId, apartadoId: confirmarEliminarAbono.apartadoId }];
                 await Promise.all(afectados.map(g => deleteAbono(g.id)));
+                const fresh = await getApartadosFull();
+                // Protección anti-huérfanos: reclasifica consumo de fondo sin respaldo
+                await repararHuerfanos(fresh);
                 // Revertir a 'activo' productos liquidados que ahora tengan pendiente
                 const apIds = [...new Set(afectados.map(g => g.apartadoId).filter(Boolean) as string[])];
-                if (apIds.length) {
-                  const fresh = await getApartadosFull();
-                  for (const apId of apIds) {
-                    const ap = fresh.find(a => a.id === apId);
-                    if (!ap || ap.estado !== 'liquidado') continue;
-                    const precio = ap.articulos?.precio_total ?? 0;
-                    const pagado = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
-                    if (pagado < precio) await updateApartado(apId, { estado: 'activo' });
-                  }
+                for (const apId of apIds) {
+                  const ap = fresh.find(a => a.id === apId);
+                  if (!ap || ap.estado !== 'liquidado') continue;
+                  const precio = ap.articulos?.precio_total ?? 0;
+                  const pagado = (ap.abonos ?? []).filter(a => a.apartado_id === ap.id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+                  if (pagado < precio) await updateApartado(apId, { estado: 'activo' });
                 }
                 setConfirmarEliminarAbono(null);
                 cargar();

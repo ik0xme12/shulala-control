@@ -73,7 +73,7 @@ export default function DetalleApartado() {
       const todosAbonos = delCliente.flatMap(ap => ap.abonos ?? []);
       const fondo = todosAbonos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
       const consumido = todosAbonos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
-      const pend = Math.max(0, totalCliente - pagadoProductos - (fondo - consumido));
+      const pend = Math.max(0, totalCliente - pagadoProductos - Math.max(0, fondo - consumido));
       setClientePendiente(pend);
       setClienteAbonado(totalCliente - pend);
     }
@@ -482,6 +482,11 @@ export default function DetalleApartado() {
         {(apartado.abonos ?? []).length > 0 && (() => {
           const abonos = [...(apartado.abonos ?? [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
           const totalAbonado = abonos.reduce((s, a) => s + a.monto, 0);
+          const etiquetaAbono = (nota: string) =>
+            nota === 'ABONO INICIAL' ? 'Abono inicial'
+            : nota === 'CONSUMO FONDO' ? 'Consumo de fondo'
+            : nota === 'LIQUIDACIÓN' ? 'Liquidación'
+            : 'Pago';
           return (
             <div className="bg-white rounded-2xl" style={{ border: '1px solid #E8DDD0' }}>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
@@ -498,7 +503,7 @@ export default function DetalleApartado() {
                     <div className="text-xs" style={{ color: '#7A6A62' }}>
                       {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
-                    {ab.nota && <div className="text-[11px] mt-0.5" style={{ color: '#B8956A' }}>{ab.nota}</div>}
+                    <div className="text-[11px] mt-0.5" style={{ color: '#B8956A' }}>{etiquetaAbono(ab.nota)}</div>
                   </div>
                   <span className="text-sm font-semibold font-sans shrink-0" style={{ color: '#7D9B7E' }}>
                     +${ab.monto.toLocaleString('es-MX')}

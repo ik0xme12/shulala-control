@@ -55,7 +55,7 @@ export default function NuevoApartado() {
         const todos = c.apartados.flatMap(ap => ap.abonos ?? []);
         const fondo = todos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
         const consumido = todos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
-        return { nombre: c.nombre, tel: c.tel, numApartados: c.numApartados, pendiente: Math.max(0, c.pendiente - (fondo - consumido)) };
+        return { nombre: c.nombre, tel: c.tel, numApartados: c.numApartados, pendiente: Math.max(0, c.pendiente - Math.max(0, fondo - consumido)) };
       });
       setTodosClientes(lista);
       if (clienteParam) {
