@@ -171,15 +171,15 @@ export default function NuevoApartado() {
                     placeholder="Cliente *" required autoComplete="off"
                     className={`${inputCls} w-full`} style={inputStyle} />
                   {mostrarSugerencias && clientesFiltrados.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
-                      style={{ border: '1px solid #E8DDD0' }}>
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-y-auto overflow-x-hidden"
+                      style={{ border: '1px solid #E8DDD0', maxHeight: '240px' }}>
                       {clientesFiltrados.map((c, i) => (
                         <button key={i} type="button" onClick={() => seleccionarCliente(c)}
                           className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 border-b last:border-0"
                           style={{ borderColor: '#E8DDD0' }}
                           onMouseDown={e => e.preventDefault()}>
-                          <div>
-                            <div className="font-medium text-text text-sm font-serif">{c.nombre}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-text text-sm font-serif truncate">{c.nombre}</div>
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
                               {c.numApartados} activo{c.numApartados !== 1 ? 's' : ''}
                             </div>
@@ -289,16 +289,16 @@ export default function NuevoApartado() {
                 placeholder="Lugar de entrega" autoComplete="off"
                 className={`${inputCls} w-full`} style={inputStyle} />
               {mostrarLugares && lugaresFiltrados.length > 0 && (
-                <div className="absolute top-full left-4 right-4 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-hidden"
-                  style={{ border: '1px solid #E8DDD0' }}>
+                <div className="absolute top-full left-4 right-4 mt-1 bg-white rounded-xl shadow-lg z-20 overflow-y-auto overflow-x-hidden"
+                  style={{ border: '1px solid #E8DDD0', maxHeight: '240px' }}>
                   {lugaresFiltrados.map((lugar, i) => (
                     <button key={i} type="button"
                       onClick={() => { set('lugar_entrega', lugar); setMostrarLugares(false); }}
                       className="w-full px-4 py-2.5 text-left text-sm text-text border-b last:border-0 flex items-center gap-2"
                       style={{ borderColor: '#E8DDD0' }}
                       onMouseDown={e => e.preventDefault()}>
-                      <span style={{ color: '#B8956A' }}>📍</span>
-                      <span className="font-serif">{lugar}</span>
+                      <span className="shrink-0" style={{ color: '#B8956A' }}>📍</span>
+                      <span className="font-serif truncate">{lugar}</span>
                     </button>
                   ))}
                 </div>
