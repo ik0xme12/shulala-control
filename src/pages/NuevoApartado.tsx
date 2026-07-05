@@ -16,8 +16,8 @@ const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none tr
 // que la vista se "expandiera" y hubiera scroll horizontal en móvil).
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' };
 const inputFocusStyle = { borderColor: '#B8956A' };
-// Campo de fecha: letra chica y espacio para el ícono de calendario a la izquierda
-const dateInputStyle = { ...inputStyle, fontSize: '12px', paddingLeft: '30px', paddingRight: '4px' };
+// Campo de fecha: letra chica para que quepa dd/mm/aaaa en dos columnas
+const dateInputStyle = { ...inputStyle, fontSize: '12px', paddingLeft: '10px', paddingRight: '4px' };
 
 
 export default function NuevoApartado() {
@@ -267,16 +267,13 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              <div className="relative flex-1 min-w-0">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">🗓️</span>
-                <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  title="Fecha límite para liquidar (por default 1 mes)"
-                  className={`${inputCls} normal-case w-full`}
-                  style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
-                  onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
-                  onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
-              </div>
+              <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                title="Fecha límite para liquidar (por default 1 mes)"
+                className={`${inputCls} normal-case flex-1 min-w-0`}
+                style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
+                onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
+                onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
             </div>
 
             {/* Agregar artículo a la lista */}
