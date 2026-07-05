@@ -131,9 +131,12 @@ export default function NuevoApartado() {
         const abono = parseFloat(it.abono || '0');
         // Si el abono inicial cubre el precio, el producto nace liquidado
         const liquidado = abono >= precio;
-        const diasLimite = it.fecha
-          ? (() => { const hoy = new Date(); hoy.setHours(0,0,0,0); const limite = new Date(it.fecha + 'T00:00:00'); return Math.round((limite.getTime() - hoy.getTime()) / 86400000); })()
-          : null;
+        // Si no se eligió fecha, por default un mes desde hoy para liquidar
+        const diasLimite = (() => {
+          const hoy = new Date(); hoy.setHours(0,0,0,0);
+          const limite = it.fecha ? new Date(it.fecha + 'T00:00:00') : (() => { const d = new Date(hoy); d.setMonth(d.getMonth() + 1); return d; })();
+          return Math.round((limite.getTime() - hoy.getTime()) / 86400000);
+        })();
         await insertArticuloYApartado(
           { id: artId, nombre: it.nombre.toUpperCase(), descripcion: '', precio_total: precio, imagen_url: null, created_at: now },
           { id: apId, articulo_id: artId, cliente_nombre: form.cliente_nombre.toUpperCase(), cliente_tel: form.cliente_tel || null, notas: form.notas.toUpperCase(), dias_limite: diasLimite, lugar_entrega: form.lugar_entrega.toUpperCase() || null, estado: liquidado ? 'liquidado' : 'activo', entregado: false, created_at: now },
@@ -160,7 +163,7 @@ export default function NuevoApartado() {
             {/* Cliente + Teléfono */}
             <div className="p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <div className="flex items-center gap-3">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <input type="text" value={form.cliente_nombre}
                     onChange={e => { set('cliente_nombre', e.target.value); setClienteSeleccionado(null); setMostrarSugerencias(true); }}
                     onFocus={e => { Object.assign(e.target.style, inputFocusStyle); if (clientesFiltrados.length > 0) setMostrarSugerencias(true); }}
@@ -237,7 +240,7 @@ export default function NuevoApartado() {
             <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
                 placeholder="Nombre del artículo *" required autoComplete="off"
-                className={`${inputCls} w-full`} style={inputStyle}
+                className={`${inputCls} flex-1 min-w-0`} style={inputStyle}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
               <div className="relative w-32 shrink-0">
@@ -250,9 +253,9 @@ export default function NuevoApartado() {
               </div>
             </div>
 
-            {/* Abono + Días */}
+            {/* Abono + Fecha límite */}
             <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-0">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
                   placeholder="Abono inicial" min="0" step="0.01"
@@ -262,7 +265,8 @@ export default function NuevoApartado() {
               </div>
               <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className={`${inputCls} normal-case shrink-0`} style={{ ...inputStyle, width: '9rem', color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
+                title="Fecha límite para liquidar (por default 1 mes)"
+                className={`${inputCls} normal-case flex-1 min-w-0`} style={{ ...inputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
                 onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                 onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>

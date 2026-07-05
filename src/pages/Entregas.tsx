@@ -39,7 +39,7 @@ export default function Entregas() {
   const esVencido = (ap: Apartado) => {
     if (ap.entregado || !ap.dias_limite) return false;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
+    const creado = new Date(new Date(ap.created_at).toDateString());
     const diasTranscurridos = Math.floor((hoy.getTime() - creado.getTime()) / 86400000);
     return diasTranscurridos > ap.dias_limite;
   };
@@ -255,7 +255,7 @@ function FilaApartado({ ap, clienteTel, entregando, onToggle }: {
   const dias = (() => {
     if (!ap.dias_limite) return null;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
+    const creado = new Date(new Date(ap.created_at).toDateString());
     const diff = Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
     return ap.dias_limite - diff;
   })();

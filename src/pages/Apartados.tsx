@@ -36,6 +36,14 @@ export default function Apartados() {
 
   const [apartados, setApartados] = useState<Apartado[]>([]);
   const [apartadosFull, setApartadosFull] = useState<Apartado[]>([]);
+  const [mostrarPorCobrar, setMostrarPorCobrar] = useState(() => {
+    try { return localStorage.getItem('mostrar_por_cobrar') !== '0'; } catch { return true; }
+  });
+  const togglePorCobrar = () => setMostrarPorCobrar(v => {
+    const nv = !v;
+    try { localStorage.setItem('mostrar_por_cobrar', nv ? '1' : '0'); } catch { /* ignore */ }
+    return nv;
+  });
   const [cargando, setCargando] = useState(true);
   const filtro: 'activo' | 'liquidado' = esHistorial ? 'liquidado' : 'activo';
   const [historialSubFiltro, setHistorialSubFiltro] = useState<'todos' | 'sin_liquidar'>('todos');
@@ -144,7 +152,7 @@ export default function Apartados() {
   const diasRestantes = (ap: Apartado) => {
     if (!ap.dias_limite) return null;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const creado = new Date(ap.created_at.split('T')[0] + 'T00:00:00');
+    const creado = new Date(new Date(ap.created_at).toDateString());
     const diff = Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
     return ap.dias_limite - diff;
   };
@@ -235,10 +243,10 @@ export default function Apartados() {
     const now = new Date().toISOString();
     const artId = crypto.randomUUID();
     const apId = crypto.randomUUID();
+    // Si no se eligió fecha, por default un mes desde hoy para liquidar
     const diasLimite = (() => {
-      if (!formProducto.fecha) return null;
       const hoy = new Date(); hoy.setHours(0,0,0,0);
-      const limite = new Date(formProducto.fecha + 'T00:00:00');
+      const limite = formProducto.fecha ? new Date(formProducto.fecha + 'T00:00:00') : (() => { const d = new Date(hoy); d.setMonth(d.getMonth() + 1); return d; })();
       return Math.round((limite.getTime() - hoy.getTime()) / 86400000);
     })();
     // Si el abono inicial cubre el precio, el producto nace liquidado
@@ -418,8 +426,20 @@ export default function Apartados() {
               <div className="text-xs text-text-light tracking-wide mt-0.5">Clientes</div>
             </button>
 
-            <div className="bg-white rounded-2xl p-3 text-center" style={{ border: '1px solid #E8DDD0' }}>
-              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#B8956A' }}>${totalPendienteGeneral.toLocaleString('es-MX')}</div>
+            <div className="relative bg-white rounded-2xl p-3 text-center" style={{ border: '1px solid #E8DDD0' }}>
+              <button type="button" onClick={togglePorCobrar}
+                className="absolute top-1.5 right-1.5 flex items-center justify-center transition-all"
+                style={{ color: '#C4B8B0' }}
+                title={mostrarPorCobrar ? 'Ocultar monto' : 'Mostrar monto'}>
+                {mostrarPorCobrar ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                )}
+              </button>
+              <div className="font-sans font-bold text-xl tracking-tight" style={{ color: '#B8956A' }}>
+                {mostrarPorCobrar ? `$${totalPendienteGeneral.toLocaleString('es-MX')}` : '$•••••'}
+              </div>
               <div className="text-xs text-text-light tracking-wide mt-0.5">Por cobrar</div>
             </div>
           </div>

@@ -132,7 +132,7 @@ export default function DetalleApartado() {
     if (!nuevoDias) {
       await updateApartado(id!, { dias_limite: null });
     } else {
-      const creado = new Date(apartado!.created_at.split('T')[0] + 'T00:00:00');
+      const creado = new Date(new Date(apartado!.created_at).toDateString());
       const limite = new Date(nuevoDias + 'T00:00:00');
       const nuevoLimite = Math.round((limite.getTime() - creado.getTime()) / 86400000);
       if (nuevoLimite <= 0) return;
@@ -375,7 +375,7 @@ export default function DetalleApartado() {
                   <div className="flex items-center gap-1.5">
                     {(() => {
                       const hoy = new Date(); hoy.setHours(0,0,0,0);
-                      const inicio = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
+                      const inicio = new Date(new Date(apartado.created_at).toDateString());
                       const transcurridos = Math.floor((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
                       const restantes = apartado.dias_limite - transcurridos;
                       return (
@@ -387,7 +387,7 @@ export default function DetalleApartado() {
                     })()}
                     <button
                       onClick={() => {
-                        const creado = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
+                        const creado = new Date(new Date(apartado.created_at).toDateString());
                         const fechaLimite = new Date(creado.getTime() + (apartado.dias_limite ?? 0) * 86400000);
                         setEditandoDias(true);
                         setNuevoDias(fechaLimite.toISOString().split('T')[0]);
@@ -638,7 +638,7 @@ export default function DetalleApartado() {
         const diasNum = (() => {
           if (!apartado.dias_limite) return null;
           const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-          const creado = new Date(apartado.created_at.split('T')[0] + 'T00:00:00');
+          const creado = new Date(new Date(apartado.created_at).toDateString());
           return apartado.dias_limite - Math.floor((hoy.getTime() - creado.getTime()) / (1000 * 60 * 60 * 24));
         })();
         const diasTexto = diasNum === null

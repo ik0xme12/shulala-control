@@ -26,8 +26,9 @@
     font-family: 'Jost', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     margin: 0;
+    overflow-x: hidden;
   }
-  #root { width: 100%; }
+  #root { width: 100%; overflow-x: hidden; }
 }
 
 @layer utilities {
