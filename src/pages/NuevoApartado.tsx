@@ -12,7 +12,9 @@ type ClienteSugerido = {
 
 const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none transition-all"
   + " uppercase placeholder:normal-case";
-const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif' };
+// fontSize 16px evita el zoom automático de iOS al enfocar un input (que causaba
+// que la vista se "expandiera" y hubiera scroll horizontal en móvil).
+const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' };
 const inputFocusStyle = { borderColor: '#B8956A' };
 
 
