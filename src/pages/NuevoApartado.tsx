@@ -270,10 +270,10 @@ export default function NuevoApartado() {
                 <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
                   title="Fecha límite para liquidar (por default 1 mes)"
-                  className={`${inputCls} normal-case w-full`}
-                  style={{ ...inputStyle, color: form.dias_limite ? '#2C2422' : 'transparent' }}
+                  className={`${inputCls} normal-case w-full min-w-0`}
+                  style={{ ...inputStyle, minWidth: 0, maxWidth: '100%', color: form.dias_limite ? '#2C2422' : 'transparent' }}
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                  onBlur={e => Object.assign(e.target.style, { ...inputStyle, minWidth: 0, maxWidth: '100%' })} />
                 {!form.dias_limite && (
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9A8A82', fontSize: '16px', fontFamily: 'Jost, system-ui, sans-serif' }}>
                     Fecha límite
