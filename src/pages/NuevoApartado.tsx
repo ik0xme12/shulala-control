@@ -276,7 +276,7 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
                 {!form.dias_limite && (
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: '#7A6A62' }}>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9A8A82', fontSize: '16px', fontFamily: 'Jost, system-ui, sans-serif' }}>
                     Fecha límite (dd/mm/aaaa)
                   </span>
                 )}
