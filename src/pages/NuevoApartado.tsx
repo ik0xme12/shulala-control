@@ -17,7 +17,7 @@ const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none tr
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' };
 const inputFocusStyle = { borderColor: '#B8956A' };
 // Campo de fecha: letra chica y padding reducido para que quepa dd/mm/aaaa completo
-const dateInputStyle = { ...inputStyle, fontSize: '11px', paddingLeft: '8px', paddingRight: '2px' };
+const dateInputStyle = { ...inputStyle, fontSize: '10px', paddingLeft: '6px', paddingRight: '2px' };
 
 
 export default function NuevoApartado() {
