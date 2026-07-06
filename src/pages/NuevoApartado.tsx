@@ -10,7 +10,7 @@ type ClienteSugerido = {
   numApartados: number;
 };
 
-const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none transition-all"
+const inputCls = "rounded-xl px-4 py-2.5 h-11 box-border text-text text-sm focus:outline-none transition-all"
   + " uppercase placeholder:normal-case";
 // fontSize 16px evita el zoom automático de iOS al enfocar un input (que causaba
 // que la vista se "expandiera" y hubiera scroll horizontal en móvil).
