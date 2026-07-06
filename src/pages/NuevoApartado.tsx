@@ -258,7 +258,7 @@ export default function NuevoApartado() {
             </div>
 
             {/* Abono + Fecha límite */}
-            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+            <div className="flex items-end gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
               <div className="relative flex-1 min-w-0">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
@@ -267,13 +267,16 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                title="Fecha límite para liquidar (por default 1 mes)"
-                className={`${inputCls} normal-case flex-1 min-w-0`}
-                style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
-                onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
-                onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
+              <div className="flex-1 min-w-0">
+                <label className="block text-[11px] mb-1 ml-1" style={{ color: '#7A6A62' }}>Fecha</label>
+                <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  title="Fecha límite para liquidar (por default 1 mes)"
+                  className={`${inputCls} normal-case w-full`}
+                  style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
+                  onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
+                  onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
+              </div>
             </div>
 
             {/* Agregar artículo a la lista */}
