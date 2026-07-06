@@ -91,7 +91,7 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
 
           {NAV.filter(n => !n.match(pathname)).map(n => (
             <Link key={n.to} to={n.to}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+              className="hidden sm:inline-block text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
               style={{ color: n.color, border: `1px solid ${n.color}` }}>
               {n.label}
             </Link>
