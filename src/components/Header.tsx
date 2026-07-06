@@ -11,9 +11,9 @@ type Props = {
 };
 
 const NAV = [
-  { label: 'Tandas',    to: '/tanda',     color: '#7A6A62', match: (p: string) => p.startsWith('/tanda') },
-  { label: 'Entregas',  to: '/entregas',  color: '#B8956A', match: (p: string) => p === '/entregas' },
-  { label: 'Apartados', to: '/apartados', color: '#7D9B7E', match: (p: string) => p === '/apartados' },
+  { label: 'Tandas',    to: '/tanda',     color: '#7A6A62', match: (p: string) => p.startsWith('/tanda'), soloDesktop: true },
+  { label: 'Entregas',  to: '/entregas',  color: '#B8956A', match: (p: string) => p === '/entregas', soloDesktop: false },
+  { label: 'Apartados', to: '/apartados', color: '#7D9B7E', match: (p: string) => p === '/apartados', soloDesktop: false },
 ];
 
 export default function Header({ titulo, backTo, backLabel = '← Volver', accion }: Props) {
@@ -72,7 +72,7 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
         )}
 
         {/* Derecha: nav + sync */}
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {accion}
 
           {/* Botón sync */}
@@ -91,13 +91,13 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
 
           {NAV.filter(n => !n.match(pathname)).map(n => (
             <Link key={n.to} to={n.to}
-              className="hidden sm:inline-block text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+              className={`${n.soloDesktop ? 'hidden sm:inline-block' : 'inline-block'} text-xs font-medium px-2.5 py-1.5 rounded-xl transition-all shrink-0`}
               style={{ color: n.color, border: `1px solid ${n.color}` }}>
               {n.label}
             </Link>
           ))}
           <Link to="/"
-            className="text-xs font-medium px-3 py-1.5 rounded-xl transition-all shrink-0"
+            className="text-xs font-medium px-2.5 py-1.5 rounded-xl transition-all shrink-0"
             style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
             ← Menú
           </Link>
