@@ -255,9 +255,9 @@ export default function NuevoApartado() {
               </div>
             </div>
 
-            {/* Abono inicial */}
-            <div className="p-4 space-y-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
-              <div className="relative">
+            {/* Abono inicial + Fecha límite (dos columnas) */}
+            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <div className="relative flex-1 min-w-0">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
                   placeholder="Abono inicial" min="0" step="0.01"
@@ -265,9 +265,8 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              {/* Fecha límite en su propia fila (a todo el ancho). Placeholder propio
-                  porque los input date no muestran el formato igual en cada navegador. */}
-              <div className="relative">
+              {/* Placeholder propio porque los input date no muestran el formato igual en cada navegador */}
+              <div className="relative flex-1 min-w-0">
                 <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
                   title="Fecha límite para liquidar (por default 1 mes)"
@@ -277,7 +276,7 @@ export default function NuevoApartado() {
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
                 {!form.dias_limite && (
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#9A8A82', fontSize: '16px', fontFamily: 'Jost, system-ui, sans-serif' }}>
-                    Fecha límite (dd/mm/aaaa)
+                    dd/mm/aaaa
                   </span>
                 )}
               </div>
