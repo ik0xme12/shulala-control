@@ -89,7 +89,7 @@ export default function Header({ titulo, backTo, backLabel = '← Volver', accio
             {ok ? '✓' : sincronizando ? '⏳' : '↻'}
           </button>
 
-          {NAV.filter(n => !n.match(pathname)).map(n => (
+          {NAV.filter(n => !n.match(pathname)).filter(n => pathname !== '/nuevo' || n.to === '/apartados').map(n => (
             <Link key={n.to} to={n.to}
               className={`${n.soloDesktop ? 'hidden sm:inline-block' : 'inline-block'} text-xs font-medium px-2.5 py-1.5 rounded-xl transition-all shrink-0`}
               style={{ color: n.color, border: `1px solid ${n.color}` }}>
