@@ -274,6 +274,7 @@ export default function NuevoApartado() {
                 style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
                 onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
                 onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
+            </div>
 
             {/* Agregar artículo a la lista */}
             <div className="px-4 pb-3 -mt-1" style={{ borderBottom: '1px solid #E8DDD0' }}>
