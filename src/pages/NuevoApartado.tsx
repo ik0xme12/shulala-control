@@ -265,14 +265,22 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
-              {/* Fecha límite en su propia fila (a todo el ancho) */}
-              <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                title="Fecha límite para liquidar (por default 1 mes)"
-                className={`${inputCls} normal-case w-full`}
-                style={{ ...inputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
-                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
-                onBlur={e => Object.assign(e.target.style, inputStyle)} />
+              {/* Fecha límite en su propia fila (a todo el ancho). Placeholder propio
+                  porque los input date no muestran el formato igual en cada navegador. */}
+              <div className="relative">
+                <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  title="Fecha límite para liquidar (por default 1 mes)"
+                  className={`${inputCls} normal-case w-full`}
+                  style={{ ...inputStyle, color: form.dias_limite ? '#2C2422' : 'transparent' }}
+                  onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                  onBlur={e => Object.assign(e.target.style, inputStyle)} />
+                {!form.dias_limite && (
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: '#7A6A62' }}>
+                    Fecha límite (dd/mm/aaaa)
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Agregar artículo a la lista */}
