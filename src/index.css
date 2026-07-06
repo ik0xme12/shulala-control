@@ -29,6 +29,8 @@
     overflow-x: hidden;
   }
   #root { width: 100%; overflow-x: hidden; }
+  /* Placeholder uniforme (gris) en todos los inputs y textarea */
+  input::placeholder, textarea::placeholder { color: #9A9A9A; opacity: 1; }
 }
 
 @layer utilities {
