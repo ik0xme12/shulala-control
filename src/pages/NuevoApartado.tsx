@@ -16,8 +16,6 @@ const inputCls = "rounded-xl px-4 py-2.5 text-text text-sm focus:outline-none tr
 // que la vista se "expandiera" y hubiera scroll horizontal en móvil).
 const inputStyle = { border: '1px solid #E8DDD0', fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px' };
 const inputFocusStyle = { borderColor: '#B8956A' };
-// Campo de fecha: letra chica y padding reducido para que quepa dd/mm/aaaa completo
-const dateInputStyle = { ...inputStyle, fontSize: '10px', paddingLeft: '6px', paddingRight: '2px' };
 
 
 export default function NuevoApartado() {
@@ -257,9 +255,9 @@ export default function NuevoApartado() {
               </div>
             </div>
 
-            {/* Abono + Fecha límite */}
-            <div className="flex items-center gap-3 p-4" style={{ borderBottom: '1px solid #E8DDD0' }}>
-              <div className="relative flex-1 min-w-0">
+            {/* Abono inicial */}
+            <div className="p-4 space-y-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
+              <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#7A6A62' }}>$</span>
                 <input type="number" value={form.abono_inicial} onChange={e => set('abono_inicial', e.target.value)}
                   placeholder="Abono inicial" min="0" step="0.01"
@@ -267,13 +265,14 @@ export default function NuevoApartado() {
                   onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
                   onBlur={e => Object.assign(e.target.style, inputStyle)} />
               </div>
+              {/* Fecha límite en su propia fila (a todo el ancho) */}
               <input type="date" value={form.dias_limite} onChange={e => set('dias_limite', e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
                 title="Fecha límite para liquidar (por default 1 mes)"
-                className={`${inputCls} normal-case flex-1 min-w-0`}
-                style={{ ...dateInputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
-                onFocus={e => Object.assign(e.target.style, { ...dateInputStyle, ...inputFocusStyle })}
-                onBlur={e => Object.assign(e.target.style, dateInputStyle)} />
+                className={`${inputCls} normal-case w-full`}
+                style={{ ...inputStyle, color: form.dias_limite ? '#2C2422' : '#7A6A62' }}
+                onFocus={e => Object.assign(e.target.style, inputFocusStyle)}
+                onBlur={e => Object.assign(e.target.style, inputStyle)} />
             </div>
 
             {/* Agregar artículo a la lista */}
