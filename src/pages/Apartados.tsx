@@ -306,10 +306,10 @@ export default function Apartados() {
 
     // Si está liquidando y el input está vacío pero hay fondo suficiente, usar el pendiente
     if (liquidar && !montoIngresado) {
-      const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+      const apartadoActual = apartadosFull.find(ap => ap.id === abonarArticuloModal.apartadoId);
       const clienteApartado = apartadoActual?.cliente_nombre;
       const abonosCliente = clienteApartado
-        ? apartados
+        ? apartadosFull
             .filter(ap => ap.cliente_nombre === clienteApartado)
             .flatMap(ap => ap.abonos ?? [])
         : [];
@@ -336,8 +336,8 @@ export default function Apartados() {
     // Dividir el pago: lo que cubre el fondo disponible se marca CONSUMO FONDO
     // (oculto, porque ese dinero ya se mostró al depositarlo). El resto es dinero
     // nuevo y se registra como abono normal que SÍ aparece en la lista.
-    const apActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
-    const abonosCli = apActual ? apartados.filter(ap => ap.cliente_nombre === apActual.cliente_nombre).flatMap(ap => ap.abonos ?? []) : [];
+    const apActual = apartadosFull.find(ap => ap.id === abonarArticuloModal.apartadoId);
+    const abonosCli = apActual ? apartadosFull.filter(ap => ap.cliente_nombre === apActual.cliente_nombre).flatMap(ap => ap.abonos ?? []) : [];
     const totalFondo = abonosCli.filter(ab => (ab.nota ?? '').startsWith('FONDO')).reduce((s, ab) => s + ab.monto, 0);
     const fondoConsumido = abonosCli.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
     const fondoDisponible = Math.max(0, totalFondo - fondoConsumido);
@@ -1239,17 +1239,19 @@ export default function Apartados() {
       {/* Modal: Abonar o Liquidar Artículo */}
       {abonarArticuloModal && (() => {
         // Encontrar el apartado y cliente de este artículo
-        const apartadoActual = apartados.find(ap => ap.id === abonarArticuloModal.apartadoId);
+        const apartadoActual = apartadosFull.find(ap => ap.id === abonarArticuloModal.apartadoId);
         const clienteApartado = apartadoActual?.cliente_nombre;
-        // Fondo del cliente: depósitos (FONDO) menos lo ya consumido (CONSUMO FONDO)
+        // Fondo del cliente: depósitos (FONDO) menos lo ya consumido (CONSUMO FONDO).
+        // Se usa apartadosFull para incluir productos entregados: el fondo ya
+        // asignado a un producto entregado NO vuelve a estar disponible.
         const abonosCliente = clienteApartado
-          ? apartados
+          ? apartadosFull
               .filter(ap => ap.cliente_nombre === clienteApartado)
               .flatMap(ap => ap.abonos ?? [])
           : [];
         const totalSaldoGlobal = abonosCliente.filter(ab => (ab.nota ?? '').startsWith('FONDO')).reduce((s, ab) => s + ab.monto, 0);
         const fondoConsumido = abonosCliente.filter(ab => ab.nota === 'CONSUMO FONDO').reduce((s, ab) => s + ab.monto, 0);
-        const totalSaldos = totalSaldoGlobal - fondoConsumido;
+        const totalSaldos = Math.max(0, totalSaldoGlobal - fondoConsumido);
         const puedeLiquidarConFondo = totalSaldos >= abonarArticuloModal.pendiente;
 
         return (
