@@ -1275,15 +1275,16 @@ export default function Apartados() {
                 </div>
               </div>
 
-              {/* Total de fondo disponible */}
-              {totalSaldos > 0 && (
-                <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid rgba(125,155,126,0.3)' }}>
-                  <p className="text-xs text-text-light mb-1">💰 Total de fondo recaudado</p>
-                  <div className="font-sans font-bold text-xl" style={{ color: '#7D9B7E' }}>
-                    ${totalSaldos.toLocaleString('es-MX')}
-                  </div>
+              {/* Total de fondo disponible (siempre visible para evitar confusión) */}
+              <div className="mb-4 p-4 rounded-xl"
+                style={totalSaldos > 0
+                  ? { backgroundColor: 'rgba(125,155,126,0.12)', border: '2px solid rgba(125,155,126,0.3)' }
+                  : { backgroundColor: 'rgba(122,106,98,0.06)', border: '2px solid #E8DDD0' }}>
+                <p className="text-xs text-text-light mb-1">💰 Fondo disponible</p>
+                <div className="font-sans font-bold text-xl" style={{ color: totalSaldos > 0 ? '#7D9B7E' : '#9A8A82' }}>
+                  {totalSaldos > 0 ? `$${totalSaldos.toLocaleString('es-MX')}` : 'Sin fondos ($0.00)'}
                 </div>
-              )}
+              </div>
 
 <div className="mb-4">
                 <label className="text-xs font-medium text-text-light block mb-1">Cantidad a abonar *</label>
