@@ -66,16 +66,20 @@ export async function getApartadosFull(): Promise<Apartado[]> {
     }
   }
 
-  // Fondos sin asignar (apartado_id = null, nota 'FONDO|<cliente>'): se re-asocian a su
-  // cliente solo para mostrarlos. En la BD siguen sin pertenecer a ningún producto.
+  // Movimientos a nivel cliente sin producto (apartado_id = null): fondos
+  // ('FONDO|<cliente>') y descuentos ('DESCUENTO|<cliente>'). Se re-asocian al
+  // cliente solo para mostrarlos; en la BD no pertenecen a ningún producto.
   for (const ab of abonos) {
-    if (ab.apartado_id === null && ab.nota && ab.nota.startsWith('FONDO|')) {
-      const cliente = ab.nota.slice('FONDO|'.length).trim();
-      const ancla = anclaPorCliente.get(cliente);
-      if (ancla) {
-        if (!abonosMap.has(ancla.id)) abonosMap.set(ancla.id, []);
-        abonosMap.get(ancla.id)!.push(ab);
-      }
+    if (ab.apartado_id !== null || !ab.nota) continue;
+    let cliente: string | null = null;
+    if (ab.nota.startsWith('FONDO|') || ab.nota.startsWith('DESCUENTO|')) {
+      cliente = ab.nota.split('|')[1]?.trim() ?? null; // 'TIPO|cliente|extra' -> cliente
+    }
+    if (!cliente) continue;
+    const ancla = anclaPorCliente.get(cliente);
+    if (ancla) {
+      if (!abonosMap.has(ancla.id)) abonosMap.set(ancla.id, []);
+      abonosMap.get(ancla.id)!.push(ab);
     }
   }
 

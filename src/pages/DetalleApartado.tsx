@@ -73,7 +73,8 @@ export default function DetalleApartado() {
       const todosAbonos = delCliente.flatMap(ap => ap.abonos ?? []);
       const fondo = todosAbonos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
       const consumido = todosAbonos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
-      const pend = Math.max(0, totalCliente - pagadoProductos - Math.max(0, fondo - consumido));
+      const descuento = todosAbonos.filter(a => (a.nota ?? '').startsWith('DESCUENTO')).reduce((s, a) => s + a.monto, 0);
+      const pend = Math.max(0, totalCliente - pagadoProductos - Math.max(0, fondo - consumido) - descuento);
       setClientePendiente(pend);
       setClienteAbonado(totalCliente - pend);
     }

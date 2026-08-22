@@ -58,6 +58,10 @@ export default function Apartados() {
   const [montoAbonoCliente, setMontoAbonoCliente] = useState('');
   const [fechaAbonoCliente, setFechaAbonoCliente] = useState('');
   const [errorAbonoCliente, setErrorAbonoCliente] = useState('');
+  const [descuentoClienteKey, setDescuentoClienteKey] = useState<string | null>(null);
+  const [montoDescuento, setMontoDescuento] = useState('');
+  const [errorDescuento, setErrorDescuento] = useState('');
+  const [tipoDescuento, setTipoDescuento] = useState<'%' | '$'>('%');
   const [formProducto, setFormProducto] = useState({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' });
   const [recienLiquidados, setRecienLiquidados] = useState<{ id: string; nombre: string }[]>([]);
   const [lugarEntregaRapido, setLugarEntregaRapido] = useState('');
@@ -185,7 +189,8 @@ export default function Apartados() {
       const fondo = todos.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
       const consumido = todos.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
       const fondoDisponible = Math.max(0, fondo - consumido);
-      return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible) };
+      const descuento = todos.filter(a => (a.nota ?? '').startsWith('DESCUENTO')).reduce((s, a) => s + a.monto, 0);
+      return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible - descuento) };
     }).sort((a, b) => b.pendiente - a.pendiente);
   })();
 
@@ -285,6 +290,34 @@ export default function Apartados() {
     setMontoAbonoCliente('');
     setFechaAbonoCliente('');
     setErrorAbonoCliente('');
+    cargar();
+  };
+
+  const guardarDescuento = async (cliente: typeof clientesFiltrados[0]) => {
+    const val = parseFloat(montoDescuento);
+    if (!val || val <= 0) {
+      setErrorDescuento(tipoDescuento === '%' ? 'Ingresa un porcentaje válido' : 'Ingresa un monto válido');
+      return;
+    }
+    let monto: number;
+    if (tipoDescuento === '%') {
+      if (val > 100) { setErrorDescuento('El porcentaje no puede ser mayor a 100%'); return; }
+      monto = Math.round(cliente.total * val / 100);   // % sobre el TOTAL de la cuenta
+    } else {
+      monto = Math.round(val);                          // monto directo
+      if (monto > cliente.total) { setErrorDescuento(`El descuento supera el total ($${cliente.total.toLocaleString('es-MX')})`); return; }
+    }
+    if (monto <= 0) {
+      setErrorDescuento('El cliente no tiene total por descontar');
+      return;
+    }
+    // Descuento a nivel cliente: apartado_id = null. La nota guarda cliente y tipo:
+    // 'DESCUENTO|<cliente>|%10' (porcentaje) o 'DESCUENTO|<cliente>|$' (monto directo).
+    const notaTipo = tipoDescuento === '%' ? `%${val}` : '$';
+    await insertAbono({ id: crypto.randomUUID(), apartado_id: null, monto, nota: `DESCUENTO|${cliente.nombre}|${notaTipo}`, created_at: new Date().toISOString() });
+    setDescuentoClienteKey(null);
+    setMontoDescuento('');
+    setErrorDescuento('');
     cargar();
   };
 
@@ -675,12 +708,12 @@ export default function Apartados() {
                   {expandido && (
                     <div className="border-t animate-fade-in" style={{ borderColor: '#E8DDD0' }}>
 
-                      {/* Tres botones de acción */}
-                      <div className="grid grid-cols-3 gap-2 p-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
+                      {/* Botones de acción */}
+                      <div className="grid grid-cols-4 gap-1.5 p-3" style={{ borderBottom: '1px solid #E8DDD0' }}>
                         <button
-                          onClick={() => { setSeleccionarArticuloClienteKey(seleccionarArticuloClienteKey === c.nombre ? null : c.nombre); setProductoClienteKey(null); setAbonosClienteKey(null); }}
+                          onClick={() => { setSeleccionarArticuloClienteKey(seleccionarArticuloClienteKey === c.nombre ? null : c.nombre); setProductoClienteKey(null); setAbonosClienteKey(null); setDescuentoClienteKey(null); }}
                           disabled={c.apartados.filter(ap => ap.estado === 'activo').length === 0}
-                          className="py-2 rounded-xl text-xs font-medium text-center transition-all"
+                          className="px-1 py-2 rounded-xl text-[11px] font-medium text-center transition-all"
                           style={c.apartados.filter(ap => ap.estado === 'activo').length === 0
                             ? { backgroundColor: 'rgba(125,155,126,0.05)', color: '#C4B8B0', border: '1px solid rgba(125,155,126,0.15)', cursor: 'not-allowed' }
                             : seleccionarArticuloClienteKey === c.nombre
@@ -689,22 +722,85 @@ export default function Apartados() {
                           + Abonar
                         </button>
                         <button
-                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setAbonosClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' }); }}
-                          className="py-2 rounded-xl text-xs font-medium text-center transition-all"
+                          onClick={() => { setProductoClienteKey(productoClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setAbonosClienteKey(null); setDescuentoClienteKey(null); setFormProducto({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' }); }}
+                          className="px-1 py-2 rounded-xl text-[11px] font-medium text-center transition-all"
                           style={productoClienteKey === c.nombre
                             ? { backgroundColor: '#B8956A', color: 'white', border: '1px solid #B8956A' }
                             : { backgroundColor: 'rgba(184,149,106,0.12)', color: '#B8956A', border: '1px solid rgba(184,149,106,0.3)' }}>
                           + Apartado
                         </button>
                         <button
-                          onClick={() => { setAbonosClienteKey(abonosClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setProductoClienteKey(null); }}
-                          className="py-2 rounded-xl text-xs font-medium text-center transition-all"
+                          onClick={() => { setAbonosClienteKey(abonosClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setProductoClienteKey(null); setDescuentoClienteKey(null); }}
+                          className="px-1 py-2 rounded-xl text-[11px] font-medium text-center transition-all"
                           style={abonosClienteKey === c.nombre
                             ? { backgroundColor: '#C4A49A', color: 'white', border: '1px solid #C4A49A' }
                             : { backgroundColor: 'rgba(196,164,154,0.12)', color: '#C4A49A', border: '1px solid rgba(196,164,154,0.3)' }}>
                           Abonos
                         </button>
+                        <button
+                          onClick={() => { setDescuentoClienteKey(descuentoClienteKey === c.nombre ? null : c.nombre); setSeleccionarArticuloClienteKey(null); setProductoClienteKey(null); setAbonosClienteKey(null); setMontoDescuento(''); setErrorDescuento(''); setTipoDescuento('%'); }}
+                          disabled={c.pendiente <= 0}
+                          className="px-1 py-2 rounded-xl text-[11px] font-medium text-center transition-all"
+                          style={c.pendiente <= 0
+                            ? { backgroundColor: 'rgba(122,106,98,0.05)', color: '#C4B8B0', border: '1px solid rgba(122,106,98,0.15)', cursor: 'not-allowed' }
+                            : descuentoClienteKey === c.nombre
+                              ? { backgroundColor: '#7A6A62', color: 'white', border: '1px solid #7A6A62' }
+                              : { backgroundColor: 'rgba(122,106,98,0.1)', color: '#7A6A62', border: '1px solid rgba(122,106,98,0.25)' }}>
+                          Descuento
+                        </button>
                       </div>
+
+                      {/* Formulario de descuento (% o $) */}
+                      {descuentoClienteKey === c.nombre && (() => {
+                        const val = parseFloat(montoDescuento) || 0;
+                        const montoCalc = tipoDescuento === '%'
+                          ? (val > 0 && val <= 100 ? Math.round(c.total * val / 100) : 0)
+                          : (val > 0 ? Math.min(Math.round(val), c.total) : 0);
+                        return (
+                        <div className="p-3 animate-fade-in" style={{ borderBottom: '1px solid #E8DDD0' }}>
+                          <div className="flex items-center gap-2 rounded-xl p-3" style={{ backgroundColor: 'rgba(122,106,98,0.06)', border: '1px solid rgba(122,106,98,0.2)' }}>
+                            {/* Toggle % / $ */}
+                            <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: '1px solid #B8956A' }}>
+                              {(['%', '$'] as const).map(t => (
+                                <button key={t} type="button"
+                                  onClick={() => { setTipoDescuento(t); setMontoDescuento(''); setErrorDescuento(''); }}
+                                  className="w-7 py-2 text-sm font-semibold transition-all"
+                                  style={tipoDescuento === t
+                                    ? { backgroundColor: '#7A6A62', color: 'white' }
+                                    : { backgroundColor: 'white', color: '#7A6A62' }}>
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="relative flex-1 min-w-0">
+                              <input type="number" value={montoDescuento}
+                                onChange={e => { setMontoDescuento(e.target.value); setErrorDescuento(''); }}
+                                placeholder={tipoDescuento === '%' ? 'Descuento %' : 'Monto $'}
+                                autoFocus min="1" step={tipoDescuento === '%' ? '1' : '0.01'} max={tipoDescuento === '%' ? '100' : undefined}
+                                onKeyDown={e => { if (e.key === 'Enter') guardarDescuento(c); }}
+                                className="w-full px-3 py-2 rounded-lg text-sm text-text focus:outline-none"
+                                style={{ border: `1px solid ${errorDescuento ? '#DC2626' : '#B8956A'}`, fontFamily: 'Jost, system-ui, sans-serif', fontSize: '16px', backgroundColor: 'white' }} />
+                            </div>
+                            <button onClick={() => guardarDescuento(c)}
+                              className="text-xs px-3 py-2 rounded-lg text-white font-medium shrink-0"
+                              style={{ backgroundColor: '#7A6A62' }}>
+                              Aplicar
+                            </button>
+                            <button onClick={() => { setDescuentoClienteKey(null); setMontoDescuento(''); setErrorDescuento(''); }}
+                              className="text-xs px-2 py-2 rounded-lg shrink-0"
+                              style={{ color: '#7A6A62', border: '1px solid #E8DDD0' }}>
+                              ✕
+                            </button>
+                          </div>
+                          {montoCalc > 0 && !errorDescuento && (
+                            <p className="text-xs mt-1.5 px-1" style={{ color: '#7A6A62' }}>
+                              = <strong>${montoCalc.toLocaleString('es-MX')}</strong> de descuento{tipoDescuento === '%' ? ` (${val}% de $${c.total.toLocaleString('es-MX')})` : ''}
+                            </p>
+                          )}
+                          {errorDescuento && <p className="text-xs mt-1.5 px-1" style={{ color: '#DC2626' }}>{errorDescuento}</p>}
+                        </div>
+                        );
+                      })()}
 
 
                       {/* Formulario de abono sin asignar */}
@@ -829,10 +925,10 @@ export default function Apartados() {
 
                       {/* Panel de abonos del cliente */}
                       {abonosClienteKey === c.nombre && (() => {
-                        // Obtener todos los abonos del cliente (asignados + saldos sin asignar), excluyendo consumo de fondo
+                        // Obtener todos los abonos del cliente, excluyendo consumo de fondo y descuentos
                         const todosAbonos = c.apartados
                           .flatMap(ap => (ap.abonos ?? []))
-                          .filter(ab => ab.nota !== 'CONSUMO FONDO')
+                          .filter(ab => ab.nota !== 'CONSUMO FONDO' && !(ab.nota ?? '').startsWith('DESCUENTO'))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
                         // Agrupar por created_at los abonos normales (cascada); LIQUIDACIÓN/ABONO INICIAL individual
@@ -851,6 +947,11 @@ export default function Apartados() {
                         const asignaciones = c.apartados
                           .flatMap(ap => (ap.abonos ?? []))
                           .filter(ab => ab.nota === 'CONSUMO FONDO')
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                        // Descuentos: reducen el pendiente, no cuentan como dinero recibido
+                        const descuentos = c.apartados
+                          .flatMap(ap => (ap.abonos ?? []))
+                          .filter(ab => (ab.nota ?? '').startsWith('DESCUENTO'))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const apNombre = new Map(c.apartados.map(ap => [ap.id, ap.articulos?.nombre ?? '']));
                         const etiquetaAbono = (nota: string) =>
@@ -976,6 +1077,42 @@ export default function Apartados() {
                                       </button>
                                     </div>
                                   ))}
+                                </div>
+                              </div>
+                            )}
+                            {descuentos.length > 0 && (
+                              <div className="px-3 pb-2 pt-2 border-t" style={{ borderColor: '#E8DDD0' }}>
+                                <div className="text-[10px] uppercase tracking-wide mb-1.5 px-1" style={{ color: '#9A8A82' }}>
+                                  Descuentos · reducen el pendiente
+                                </div>
+                                <div className="space-y-1.5">
+                                  {descuentos.map(ab => {
+                                    const tipo = (ab.nota ?? '').split('|')[2] ?? '';
+                                    const esPorcentaje = tipo.startsWith('%');
+                                    return (
+                                    <div key={ab.id} className="rounded-xl px-3 py-2 flex items-center gap-2"
+                                      style={{ backgroundColor: 'rgba(122,106,98,0.06)', border: '1px solid rgba(122,106,98,0.18)' }}>
+                                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                                        style={{ backgroundColor: 'rgba(122,106,98,0.18)', color: '#7A6A62' }}>{esPorcentaje ? '%' : '$'}</div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-medium" style={{ color: '#7A6A62' }}>
+                                          {esPorcentaje ? `Descuento ${tipo.slice(1)}%` : 'Descuento (monto)'}
+                                        </div>
+                                        <div className="text-[10px]" style={{ color: '#9A8A82' }}>
+                                          {new Date(ab.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm font-semibold font-sans shrink-0" style={{ color: '#7A6A62' }}>
+                                        -${ab.monto.toLocaleString('es-MX')}
+                                      </div>
+                                      <button onClick={() => setConfirmarEliminarAbono({ abonoId: ab.id, apartadoId: ab.apartado_id })}
+                                        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition-all"
+                                        style={{ backgroundColor: 'rgba(196,164,154,0.15)', color: '#C4A49A', border: '1px solid #E8DDD0' }}>
+                                        ✕
+                                      </button>
+                                    </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
