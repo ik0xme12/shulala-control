@@ -92,24 +92,36 @@ export default function DetalleApartado() {
   }, []);
 
 
+  // Liquida el producto consumiendo primero el fondo disponible del cliente
+  // (así el fondo se gasta y no queda "colgado" para productos nuevos).
+  // forzar = true: liquida aunque falte (aplica el fondo que haya, sin pago directo del resto).
+  const aplicarFondoYLiquidar = async (forzar: boolean) => {
+    if (!apartado) return;
+    const precio = apartado.articulos?.precio_total ?? 0;
+    const pagadoProducto = (apartado.abonos ?? []).filter(a => a.apartado_id === id && !(a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+    const pendienteProd = Math.max(0, precio - pagadoProducto);
+    if (pendienteProd > 0) {
+      const todos = await getApartadosFull();
+      const abonosCli = todos.filter(ap => ap.cliente_nombre === apartado.cliente_nombre).flatMap(ap => ap.abonos ?? []);
+      const totalFondo = abonosCli.filter(a => (a.nota ?? '').startsWith('FONDO')).reduce((s, a) => s + a.monto, 0);
+      const consumido = abonosCli.filter(a => a.nota === 'CONSUMO FONDO').reduce((s, a) => s + a.monto, 0);
+      const fondoDisponible = Math.max(0, totalFondo - consumido);
+      const montoDeFondo = Math.min(pendienteProd, fondoDisponible);
+      const montoDirecto = forzar ? 0 : (pendienteProd - montoDeFondo);
+      const now = new Date().toISOString();
+      if (montoDeFondo > 0) await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto: montoDeFondo, nota: 'CONSUMO FONDO', created_at: now });
+      if (montoDirecto > 0) await insertAbono({ id: crypto.randomUUID(), apartado_id: id!, monto: montoDirecto, nota: '', created_at: now });
+    }
+    await updateApartado(id!, { estado: 'liquidado' });
+    cargar();
+  };
+
   const liquidar = async () => {
     if (clientePendiente > 0) {
       setConfirmarLiquidar({ falta: clientePendiente });
       return;
     }
-    // Registrar abono por el monto pendiente del artículo
-    const pendiente = (apartado?.articulos?.precio_total ?? 0) - ((apartado?.abonos ?? []).filter(a => a.apartado_id === id).reduce((s, a) => s + a.monto, 0));
-    if (pendiente > 0) {
-      await insertAbono({
-        id: crypto.randomUUID(),
-        apartado_id: id!,
-        monto: pendiente,
-        nota: '',
-        created_at: new Date().toISOString()
-      });
-    }
-    await updateApartado(id!, { estado: 'liquidado' });
-    cargar();
+    await aplicarFondoYLiquidar(false);
   };
 
   const entregar = async () => {
@@ -618,9 +630,8 @@ export default function DetalleApartado() {
                 Cancelar
               </button>
               <button onClick={async () => {
-                await updateApartado(id!, { estado: 'liquidado' });
                 setConfirmarLiquidar(null);
-                cargar();
+                await aplicarFondoYLiquidar(true);
               }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: '#7D9B7E' }}>
                 Liquidar
               </button>
