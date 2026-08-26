@@ -151,7 +151,6 @@ export default function Apartados() {
 
   // Solo activos para estadísticas y vista de lista
   const soloActivos = apartados.filter(ap => ap.estado === 'activo');
-  const totalPendienteGeneral = soloActivos.reduce((s, a) => s + pendiente(a), 0);
 
   const diasRestantes = (ap: Apartado) => {
     if (!ap.dias_limite) return null;
@@ -193,6 +192,10 @@ export default function Apartados() {
       return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible - descuento) };
     }).sort((a, b) => b.pendiente - a.pendiente);
   })();
+
+  // "Por cobrar" = cobrable real = suma de los pendientes reales de cada cliente
+  // (ya descuenta abonos, fondo disponible y descuentos).
+  const totalPendienteGeneral = resumenClientes.reduce((s, c) => s + c.pendiente, 0);
 
   const resumenClientesHistorial = (() => {
     const mapa = new Map<string, ResumenCliente>();
@@ -931,18 +934,8 @@ export default function Apartados() {
                           .filter(ab => ab.nota !== 'CONSUMO FONDO' && !(ab.nota ?? '').startsWith('DESCUENTO'))
                           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         const totalAbonos = todosAbonos.reduce((s, ab) => s + ab.monto, 0);
-                        // Agrupar por created_at los abonos normales (cascada); LIQUIDACIÓN/ABONO INICIAL individual
-                        const abonosAgrupados = (() => {
-                          const map = new Map<string, typeof todosAbonos>();
-                          for (const ab of todosAbonos) {
-                            const key = (ab.nota === 'LIQUIDACIÓN' || ab.nota === 'ABONO INICIAL') ? ab.id : ab.created_at;
-                            if (!map.has(key)) map.set(key, []);
-                            map.get(key)!.push(ab);
-                          }
-                          return Array.from(map.values()).sort((a, b) =>
-                            new Date(b[0].created_at).getTime() - new Date(a[0].created_at).getTime()
-                          );
-                        })();
+                        // Cada abono se muestra por separado (no se agrupan aunque sean del mismo día)
+                        const abonosAgrupados = todosAbonos.map(ab => [ab]);
                         // Asignaciones de fondo (CONSUMO FONDO): se muestran aparte y NO suman
                         const asignaciones = c.apartados
                           .flatMap(ap => (ap.abonos ?? []))
