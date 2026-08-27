@@ -10,6 +10,7 @@ export async function pullAll() {
       { data: tandas },
       { data: participantes },
       { data: pagos },
+      { data: checkins },
     ] = await Promise.all([
       supabase.from('articulos').select('*'),
       supabase.from('apartados').select('*'),
@@ -17,11 +18,12 @@ export async function pullAll() {
       supabase.from('tanda').select('*'),
       supabase.from('tanda_participantes').select('*'),
       supabase.from('tanda_pagos').select('*'),
+      supabase.from('checkins').select('*'),
     ]);
 
     await db.transaction('rw', [
       db.articulos, db.apartados, db.abonos,
-      db.tanda, db.tanda_participantes, db.tanda_pagos,
+      db.tanda, db.tanda_participantes, db.tanda_pagos, db.checkins,
     ], async () => {
       await db.articulos.clear();
       await db.apartados.clear();
@@ -29,12 +31,14 @@ export async function pullAll() {
       await db.tanda.clear();
       await db.tanda_participantes.clear();
       await db.tanda_pagos.clear();
+      await db.checkins.clear();
       if (articulos?.length) await db.articulos.bulkPut(articulos);
       if (apartados?.length) await db.apartados.bulkPut(apartados);
       if (abonos?.length) await db.abonos.bulkPut(abonos);
       if (tandas?.length) await db.tanda.bulkPut(tandas);
       if (participantes?.length) await db.tanda_participantes.bulkPut(participantes);
       if (pagos?.length) await db.tanda_pagos.bulkPut(pagos);
+      if (checkins?.length) await db.checkins.bulkPut(checkins);
     });
   } catch (e) {
     console.error('[sync] pullAll error:', e);

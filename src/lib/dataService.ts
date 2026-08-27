@@ -268,6 +268,22 @@ export async function deleteAbono(id: string) {
   await writeSupabase('abonos', 'delete', undefined, { id });
 }
 
+// ─── check-ins de cliente (sincronizados con Supabase) ──────────────────────
+export async function getCheckins(): Promise<string[]> {
+  const rows = await db.checkins.toArray();
+  return rows.map(r => r.cliente_nombre);
+}
+
+export async function setCheckin(cliente_nombre: string, on: boolean) {
+  if (on) {
+    await db.checkins.put({ cliente_nombre });
+    await writeSupabase('checkins', 'insert', { cliente_nombre });
+  } else {
+    await db.checkins.delete(cliente_nombre);
+    await writeSupabase('checkins', 'delete', undefined, { cliente_nombre });
+  }
+}
+
 export async function deleteApartado(id: string) {
   const abonos = await db.abonos.where('apartado_id').equals(id).toArray();
   for (const ab of abonos) {

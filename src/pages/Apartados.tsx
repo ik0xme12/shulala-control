@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { type Apartado, type Abono } from '../lib/supabase';
-import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono, deleteAbono } from '../lib/dataService';
+import { getApartadosFull, insertAbono, insertArticuloYApartado, updateApartado, updateAbono, deleteAbono, getCheckins, setCheckin } from '../lib/dataService';
 import { useSyncReady } from '../lib/SyncContext';
 import Header from '../components/Header';
 
@@ -62,6 +62,12 @@ export default function Apartados() {
   const [montoDescuento, setMontoDescuento] = useState('');
   const [errorDescuento, setErrorDescuento] = useState('');
   const [tipoDescuento, setTipoDescuento] = useState<'%' | '$'>('%');
+  const [checkins, setCheckins] = useState<Set<string>>(new Set());
+  const toggleCheckin = async (nombre: string) => {
+    const on = !checkins.has(nombre);
+    setCheckins(prev => { const next = new Set(prev); if (on) next.add(nombre); else next.delete(nombre); return next; });
+    await setCheckin(nombre, on);
+  };
   const [formProducto, setFormProducto] = useState({ nombre: '', precio: '', abono: '', fecha: '', lugar: '' });
   const [recienLiquidados, setRecienLiquidados] = useState<{ id: string; nombre: string }[]>([]);
   const [lugarEntregaRapido, setLugarEntregaRapido] = useState('');
@@ -97,6 +103,7 @@ export default function Apartados() {
     } else {
       setApartados(ordenados.filter(ap => !ap.entregado || (!!ap.entregado && ap.estado !== 'liquidado')));
     }
+    try { setCheckins(new Set(await getCheckins())); } catch { /* ignore */ }
     setCargando(false);
   };
 
@@ -669,22 +676,34 @@ export default function Apartados() {
               return (
                 <div key={c.nombre} className="bg-white rounded-2xl overflow-hidden card-hover" style={{ border: '1px solid #E8DDD0' }}>
                   <div className="px-4 py-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <button className="flex-1 min-w-0 text-left"
-                        onClick={() => !q && setClienteExpandido(clienteExpandido === c.nombre ? null : c.nombre)}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0"
-                            style={{ backgroundColor: '#C4A49A' }}>
-                            {c.nombre.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-serif font-semibold text-text" style={{ fontSize: '19px' }}>{c.nombre}</div>
-                            <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
-                              {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {/* Check-in manual del cliente */}
+                        <button type="button"
+                          onClick={e => { e.stopPropagation(); toggleCheckin(c.nombre); }}
+                          title={checkins.has(c.nombre) ? 'Quitar check' : 'Marcar check'}
+                          className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all"
+                          style={checkins.has(c.nombre)
+                            ? { backgroundColor: '#7D9B7E', border: '1px solid #7D9B7E', color: 'white' }
+                            : { backgroundColor: 'white', border: '1.5px solid #D8CDBF' }}>
+                          {checkins.has(c.nombre) && <span className="text-[11px] font-bold leading-none">✓</span>}
+                        </button>
+                        <button className="flex-1 min-w-0 text-left"
+                          onClick={() => !q && setClienteExpandido(clienteExpandido === c.nombre ? null : c.nombre)}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0"
+                              style={{ backgroundColor: '#C4A49A' }}>
+                              {c.nombre.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-serif font-semibold text-text truncate" style={{ fontSize: '19px' }}>{c.nombre}</div>
+                              <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
+                                {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                      </div>
                       <div className="flex items-center gap-3 shrink-0">
                         <button className="text-right"
                           onClick={() => !q && setClienteExpandido(clienteExpandido === c.nombre ? null : c.nombre)}>

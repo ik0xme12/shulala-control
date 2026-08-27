@@ -14,6 +14,8 @@ export type SyncItem = {
   ts: string;
 };
 
+export type Checkin = { cliente_nombre: string };
+
 export class ShulalaDB extends Dexie {
   articulos!: Table<Articulo>;
   apartados!: Table<ApartadoFlat>;
@@ -21,6 +23,7 @@ export class ShulalaDB extends Dexie {
   tanda!: Table<TandaFlat>;
   tanda_participantes!: Table<TandaParticipanteFlat>;
   tanda_pagos!: Table<TandaPago>;
+  checkins!: Table<Checkin>;
   sync_queue!: Table<SyncItem>;
 
   constructor() {
@@ -41,6 +44,16 @@ export class ShulalaDB extends Dexie {
       tanda: 'id, archivada',
       tanda_participantes: 'id, tanda_id, numero_turno',
       tanda_pagos: 'id, tanda_participante_id, numero_ronda',
+      sync_queue: '++id, ts',
+    });
+    this.version(3).stores({
+      articulos: 'id',
+      apartados: 'id, articulo_id, estado, entregado',
+      abonos: 'id, apartado_id, pago_id',
+      tanda: 'id, archivada',
+      tanda_participantes: 'id, tanda_id, numero_turno',
+      tanda_pagos: 'id, tanda_participante_id, numero_ronda',
+      checkins: 'cliente_nombre',
       sync_queue: '++id, ts',
     });
   }
