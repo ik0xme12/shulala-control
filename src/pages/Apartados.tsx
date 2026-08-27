@@ -197,7 +197,7 @@ export default function Apartados() {
       const fondoDisponible = Math.max(0, fondo - consumido);
       const descuento = todos.filter(a => (a.nota ?? '').startsWith('DESCUENTO')).reduce((s, a) => s + a.monto, 0);
       return { ...c, pendiente: Math.max(0, c.pendiente - fondoDisponible - descuento) };
-    }).sort((a, b) => b.pendiente - a.pendiente);
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
   })();
 
   // "Por cobrar" = cobrable real = suma de los pendientes reales de cada cliente
