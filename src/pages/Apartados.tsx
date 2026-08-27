@@ -678,18 +678,21 @@ export default function Apartados() {
                   <div className="px-4 py-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Círculo de inicial = check-in manual (tocar alterna) */}
+                        {/* Círculo de inicial = botón de check-in (tocar alterna) */}
                         <button type="button"
                           onClick={e => { e.stopPropagation(); toggleCheckin(c.nombre); }}
                           title={checkins.has(c.nombre) ? 'Quitar check' : 'Marcar check'}
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0 transition-all"
-                          style={{ backgroundColor: checkins.has(c.nombre) ? '#7D9B7E' : '#C4A49A' }}>
-                          {checkins.has(c.nombre) ? '✓' : c.nombre.charAt(0)}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white font-serif font-semibold text-lg shrink-0"
+                          style={{ backgroundColor: '#C4A49A' }}>
+                          {c.nombre.charAt(0)}
                         </button>
                         <button className="flex-1 min-w-0 text-left"
                           onClick={() => !q && setClienteExpandido(clienteExpandido === c.nombre ? null : c.nombre)}>
                           <div className="min-w-0">
-                            <div className="font-serif font-semibold text-text truncate" style={{ fontSize: '19px' }}>{c.nombre}</div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-serif font-semibold text-text truncate" style={{ fontSize: '19px' }}>{c.nombre}</span>
+                              {checkins.has(c.nombre) && <span className="shrink-0 text-sm font-bold" style={{ color: '#7D9B7E' }}>✓</span>}
+                            </div>
                             <div className="text-xs mt-0.5" style={{ color: '#7D9B7E' }}>
                               {c.numApartados} artículo{c.numApartados !== 1 ? 's' : ''}
                             </div>
